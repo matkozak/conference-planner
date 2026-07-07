@@ -6,10 +6,10 @@ official app.
 
 ## Current Result
 
-The latest completed dump is in `aaic_dump/`:
+The latest completed dump is in `data/aaic_2026/`:
 
-- `aaic_dump/sessions.json`
-- `aaic_dump/sessions.csv`
+- `data/aaic_2026/sessions.json`
+- `data/aaic_2026/sessions.csv`
 
 Verification from the completed run:
 
@@ -21,13 +21,13 @@ Verification from the completed run:
 
 ## Main Script
 
-Use `scrape_aaic.py`. It uses only Python standard library modules.
+Use `scripts/scrape_aaic.py`. It uses only Python standard library modules.
 
 Basic rerun:
 
 ```bash
 AAIC_COOKIE='miplanner0=...; xphrj=...; xphrj_web=...; web_cc5172e7=...' \
-  python3 scrape_aaic.py --outdir aaic_dump --resume
+  python3 scripts/scrape_aaic.py --outdir data/aaic_2026 --resume
 ```
 
 Do not commit or hard-code the cookie. Copy it from a logged-in browser request
@@ -35,7 +35,7 @@ to `https://eppro01.ativ.me/web/api.php`.
 
 Useful options:
 
-- `--resume`: merge existing `aaic_dump/sessions.json` and skip detail pages
+- `--resume`: merge existing `data/aaic_2026/sessions.json` and skip detail pages
   that already have a location or previous detail error.
 - `--no-details`: only fetch the parent session list, without detail pages.
 - `--date YYYY-MM-DD`: restrict to one date. Can be repeated.
@@ -45,7 +45,7 @@ Useful options:
 Example smoke test:
 
 ```bash
-AAIC_COOKIE='...' python3 scrape_aaic.py \
+AAIC_COOKIE='...' python3 scripts/scrape_aaic.py \
   --date 2026-07-12 \
   --max-sessions 2 \
   --outdir aaic_sample
@@ -96,7 +96,7 @@ selectonly=
 
 The response is awkward: an EventPilot XML wrapper often contains another
 escaped XML response, and the inner response contains escaped HTML list cells.
-`scrape_aaic.py` mirrors the app's tolerant parsing approach and then parses the
+`scripts/scrape_aaic.py` mirrors the app's tolerant parsing approach and then parses the
 HTML cells.
 
 For each parent session, the detail page is:
@@ -144,6 +144,8 @@ Each JSON session contains fields like:
 The CSV flattens the common planning fields and joins presentation titles with
 ` | `.
 
+See `STATUS.md` for current caveats and likely next modeling steps.
+
 ## Known Local Scratch Files
 
 There are several probe files in the workspace from endpoint discovery:
@@ -155,10 +157,11 @@ There are several probe files in the workspace from endpoint discovery:
 
 They are not required for normal use. The important files are:
 
-- `scrape_aaic.py`
+- `scripts/scrape_aaic.py`
 - `README.md`
-- `aaic_dump/sessions.json`
-- `aaic_dump/sessions.csv`
+- `STATUS.md`
+- `data/aaic_2026/sessions.json`
+- `data/aaic_2026/sessions.csv`
 
 ## Notes For Next Agent
 

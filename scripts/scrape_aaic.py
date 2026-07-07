@@ -339,7 +339,7 @@ def write_outputs(rows: list[dict[str, Any]], outdir: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cookie", default=os.environ.get("AAIC_COOKIE", ""))
-    parser.add_argument("--outdir", type=Path, default=Path("aaic_dump"))
+    parser.add_argument("--outdir", type=Path, default=Path("data/aaic_2026"))
     parser.add_argument("--date", action="append", dest="dates")
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--sleep", type=float, default=0.15)
