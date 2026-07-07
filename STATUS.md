@@ -47,18 +47,42 @@ presentation objects. Presentation author and affiliation blocks are preserved i
 `description_html` and `description_text`; EventPilot only exposes primary
 speaker/person ids separately.
 
-## Remaining Modeling Choices
+## People Roadmap
 
-- Decide whether to parse `description_html` into structured authors and
-  affiliations, or keep it as a single author/affiliation text field.
-- Consider a SQLite export:
-  - `sessions`
-  - `presentations`
-  - optionally `people`
-  - optionally a view that unions sessions and presentations as schedulable
-    agenda items.
-- Decide whether poster board numbers should remain in `location` or also be
-  split into a dedicated board field.
+The current dump keeps EventPilot `speaker_ids` and `person_ids`, but it does
+not yet fetch the `speakers` table. A probe showed that `table=speakers` records
+contain fields such as first name, last name, organization, degree, country, and
+optional profile metadata.
+
+A pragmatic next step is:
+
+- Fetch unique `person_ids` from sessions and presentations.
+- Store normalized people records in JSON, either as a top-level `people` map or
+  a separate `people.json`.
+- Keep presentation `description_html` and `description_text` as the full
+  author/affiliation source, because EventPilot's speaker ids usually identify
+  the primary presenter rather than every author.
+- Defer parsing full author lists into structured author rows until it is clear
+  that the formatting is consistent enough to trust.
+
+## SQLite Roadmap
+
+When the JSON shape stabilizes, export to SQLite with a small normalized schema:
+
+- `sessions`: parent agenda rows where `parent_id` is empty.
+- `presentations`: child agenda rows with `parent_session_id`.
+- `people`: records fetched from EventPilot's `speakers` table.
+- Optional join tables for session chairs/presenters once the semantics of
+  `speaker_ids` and `person_ids` are clear.
+- Optional `agenda_items` view that unions sessions and presentations for
+  schedule search.
+
+Other modeling choices to settle:
+
+- Whether to keep EventPilot's `subsession_ids` only in raw JSON, since
+  `presentations.parent_session_id` is enough for normalized SQLite.
+- Whether poster board numbers should remain in `location` or also be split into
+  a dedicated board field.
 
 ## Operational Notes
 
