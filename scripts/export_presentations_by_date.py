@@ -8,6 +8,7 @@ import csv
 import json
 import re
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,17 @@ def format_minutes(minutes: int) -> str:
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
+def format_iso_range(item: dict[str, Any]) -> tuple[str, int] | None:
+    starts_at = item.get("starts_at")
+    ends_at = item.get("ends_at")
+    if not starts_at or not ends_at:
+        return None
+    start = datetime.fromisoformat(str(starts_at))
+    end = datetime.fromisoformat(str(ends_at))
+    start_minutes = start.hour * 60 + start.minute
+    return f"{start:%H:%M} - {end:%H:%M}", start_minutes
+
+
 def format_range(start: str, end: str) -> tuple[str, int]:
     start_minutes = parse_ampm(start)
     end_minutes = parse_ampm(end)
@@ -46,6 +58,9 @@ def format_range(start: str, end: str) -> tuple[str, int]:
 
 
 def parse_session_time(session: dict[str, Any]) -> tuple[str, int]:
+    iso_range = format_iso_range(session)
+    if iso_range:
+        return iso_range
     source = str(session.get("detail_time") or session.get("time_summary") or "")
     match = TIME_RE.search(source)
     if not match:
@@ -53,7 +68,18 @@ def parse_session_time(session: dict[str, Any]) -> tuple[str, int]:
     return format_range(match.group("start"), match.group("end"))
 
 
-def parse_presentation_time(value: str) -> tuple[str, str, int]:
+def first_author(value: str) -> str:
+    first_line = next((line.strip() for line in value.splitlines() if line.strip()), "")
+    first_name = re.split(r"[;,]", first_line, maxsplit=1)[0]
+    return re.sub(r"\s*\d+$", "", first_name).strip()
+
+
+def parse_presentation(presentation: dict[str, Any]) -> tuple[str, str, int]:
+    iso_range = format_iso_range(presentation)
+    if iso_range:
+        return iso_range[0], first_author(str(presentation.get("description_text") or "")), iso_range[1]
+
+    value = str(presentation.get("time_and_speaker") or "")
     match = PRESENTATION_RE.match(value.strip())
     if not match:
         return "", "", 24 * 60
@@ -88,9 +114,7 @@ def rows_by_date(sessions: list[dict[str, Any]]) -> dict[str, list[dict[str, Any
             continue
 
         for presentation in presentations:
-            presentation_time, presenter, presentation_start = parse_presentation_time(
-                str(presentation.get("time_and_speaker") or "")
-            )
+            presentation_time, presenter, presentation_start = parse_presentation(presentation)
             rows[session_date].append(
                 {
                     "Session time": session_time,
@@ -119,7 +143,7 @@ def write_csvs(rows: dict[str, list[dict[str, Any]]], outdir: Path) -> None:
         with (outdir / f"presentations_{session_date}.csv").open(
             "w", newline="", encoding="utf-8"
         ) as fh:
-            writer = csv.DictWriter(fh, fieldnames=FIELDS)
+            writer = csv.DictWriter(fh, fieldnames=FIELDS, lineterminator="\n")
             writer.writeheader()
             for row in date_rows:
                 writer.writerow({field: row[field] for field in FIELDS})

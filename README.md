@@ -40,7 +40,17 @@ Useful options:
 - `--no-details`: only fetch the parent session list, without detail pages.
 - `--date YYYY-MM-DD`: restrict to one date. Can be repeated.
 - `--max-sessions N`: limit a validation run.
-- `--sleep 0.15`: delay between requests, in seconds.
+- `--sleep 0.15`: delay between session-list page requests, in seconds.
+- `--detail-workers 3`: concurrent agenda-detail fetches.
+- `--detail-interval 0.05`: minimum delay between detail request starts, in seconds.
+- `--save-every 100`: write partial JSON/CSV progress after this many detail results.
+- `--log-every 50`: log every Nth successful presentation detail; errors always log.
+
+Agenda detail records are fetched concurrently but conservatively. The default
+of 3 workers with a 0.05 second request-start interval is intended to get a
+basic speed-up from network overlap without hammering a logged-in EventPilot PHP
+session. Detail logs include per-record timing and mark likely rate-limit
+errors.
 
 Example smoke test:
 
@@ -99,19 +109,30 @@ escaped XML response, and the inner response contains escaped HTML list cells.
 `scripts/scrape_aaic.py` mirrors the app's tolerant parsing approach and then parses the
 HTML cells.
 
-For each parent session, the detail page is:
+For each agenda item, the detail endpoint is:
 
 ```text
-GET https://eppro01.ativ.me/web/page.php?nav=false&page=Session&project=ALZ19292F861B994564D&id=<SESSION_ID>&plannersession=true
+POST https://eppro01.ativ.me/web/api.php
 ```
 
-The detail page provides:
+with form data:
 
-- location via `session_detail_location`
-- full date/time via `session_detail_time`
-- session number via `sessionnumber`
-- speakers via `speaker_cell`
-- nested presentations via `session_cell` entries whose ids start with `P`
+```text
+interface=eptable
+action=gettabledata
+confid=ALZ19292F861B994564D
+table=agenda
+tid=<SESSION_OR_PRESENTATION_ID>
+```
+
+The agenda table detail response provides:
+
+- description HTML
+- date plus start/stop times
+- location
+- session number
+- speaker/person ids
+- nested presentation ids via `subsessions`
 
 ## Parsed Output Shape
 
@@ -123,26 +144,30 @@ Each JSON session contains fields like:
   "date": "2026-07-12",
   "category": "Featured Research Sessions",
   "title": "Featured Research Sessions - Metabolic adaptations and mitochondrial dysfunction in ADRD",
-  "time_summary": "9:00AM-10:30AM Jul 12 (BST)",
-  "speakers_summary": "Frederic Calon, Silvia Fossati",
-  "detail_time": "Sun, Jul 12 | 9:00am - 10:30am (BST)",
+  "starts_at": "2026-07-12T09:00:00+01:00",
+  "ends_at": "2026-07-12T10:30:00+01:00",
   "location": "Victoria 5/6",
   "session_number": "1-19-FRS-A",
-  "speakers": [
-    {"name": "Frederic Calon", "affiliation": "Universite Laval"}
-  ],
+  "description_html": "",
+  "description_text": "",
+  "speaker_ids": ["1926", "749"],
+  "subsession_ids": ["P16407", "P2740"],
   "presentations": [
     {
       "id": "P2740",
       "title": "Metabolic biomarkers across the AD continuum: insights into how they maycontribute to neuropathology.",
-      "time_and_speaker": "9:02am-9:12am Jul 12 (BST) Frederic Calon"
+      "parent_id": "S510",
+      "starts_at": "2026-07-12T09:02:00+01:00",
+      "ends_at": "2026-07-12T09:12:00+01:00",
+      "location": "Victoria 5/6",
+      "description_text": "Frederic Calon;\nUniversite Laval, Faculty of Pharmacy, Quebec, QC, Canada"
     }
   ]
 }
 ```
 
-The CSV flattens the common planning fields and joins presentation titles with
-` | `.
+The session CSV is a compact parent-session index. Daily presentation CSVs in
+`data/aaic_2026/presentations_*.csv` are derived planning views.
 
 See `STATUS.md` for current caveats and likely next modeling steps.
 
@@ -162,6 +187,7 @@ They are not required for normal use. The important files are:
 - `STATUS.md`
 - `data/aaic_2026/sessions.json`
 - `data/aaic_2026/sessions.csv`
+- `data/aaic_2026/presentations_*.csv`
 
 ## Notes For Next Agent
 
@@ -170,5 +196,6 @@ They are not required for normal use. The important files are:
   `Cookie:` header from the browser's Network tab.
 - The app returns malformed or nested XML-ish responses. Avoid replacing the
   tolerant decoder with strict XML parsing unless the endpoint changes.
-- The script intentionally fetches detail pages serially. It is slower but
-  gentler on the logged-in session and server.
+- Detail fetching uses conservative bounded concurrency. If the app starts
+  returning likely limit errors, lower `--detail-workers` or increase
+  `--detail-interval`.

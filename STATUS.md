@@ -3,62 +3,62 @@
 ## What Exists
 
 - `scripts/scrape_aaic.py`: standard-library scraper for the AAIC 2026 EventPilot planner.
-- `data/aaic_2026/sessions.json`: full current dump.
-- `data/aaic_2026/sessions.csv`: session-level CSV derived from the JSON dump.
+- `scripts/export_presentations_by_date.py`: derived daily planning CSV exporter.
+- `data/aaic_2026/sessions.json`: full current structured dump.
+- `data/aaic_2026/sessions.csv`: compact parent-session CSV index.
+- `data/aaic_2026/presentations_*.csv`: one planning CSV per date.
 
-The current dump contains:
+The current structured dump contains:
 
 - 360 parent sessions
-- 360 parsed locations
+- 360 parent sessions with locations
+- 106 parent sessions with description text
 - 6,850 nested presentations
-- 0 detail fetch errors from the completed run
+- 6,699 nested presentations with description text
+- 0 parent or presentation detail fetch errors from the completed run
 
-## Known Flattening / Lossy Shapes
+## Current Shape
 
-The JSON is the richer source of truth. The CSV is intentionally flattened for
-quick scanning.
+The JSON is the source of truth. Parent sessions and nested presentations use the
+same core fields where EventPilot provides them:
 
-Current flattened fields:
+- `id`
+- `parent_id`
+- `date`
+- `starts_at`
+- `ends_at`
+- `title`
+- `description_html`
+- `description_text`
+- `location`
+- `category`
+- `category_id`
+- `session_number`
+- `speaker_ids`
+- `person_ids`
+- `subsession_ids`
+- `media`
+- `metadata`
+- `related_ids`
+- `related_scores`
 
-- `sessions.csv` has one row per parent session, not one row per presentation.
-- `presentation_titles` is a ` | `-delimited list of nested presentation titles.
-- `presentation_count` is derived from the JSON presentations array.
-- Each presentation in JSON currently has `time_and_speaker`, a scraper-created
-  flattened string from the parent session detail page. It combines presentation
-  time and display speaker, for example:
-  `8:02am-8:09am Jul 15 (BST) Mark Kindy`.
-- Parent `speakers_summary` is the app's comma-separated display string.
-- Parent `speakers` is structured as an array of `{name, affiliation}` objects
-  parsed from detail pages.
+Parent sessions additionally contain `presentations`, a list of normalized
+presentation objects. Presentation author and affiliation blocks are preserved in
+`description_html` and `description_text`; EventPilot only exposes primary
+speaker/person ids separately.
 
-Presentation detail pages can expose more structure than the current nested
-presentation objects keep:
+## Remaining Modeling Choices
 
-- presentation title
-- presentation time
-- location
-- display speaker/presenter via `speaker_cell`
-- speaker affiliation
-- author line and superscript affiliations in the detail description
-
-The current scraper does not fetch every `P...` presentation detail page, so it
-does not yet preserve full presentation authors/affiliations.
-
-## Likely Next Steps
-
-- Generate `data/aaic_2026/presentations.csv` with one row per presentation,
-  including parent session id/title/category/location.
-- Split `time_and_speaker` into presentation `starts_at`, `ends_at`, and
-  `speaker_display`.
-- Normalize times into UTC ISO-8601 strings for storage/search.
+- Decide whether to parse `description_html` into structured authors and
+  affiliations, or keep it as a single author/affiliation text field.
 - Consider a SQLite export:
   - `sessions`
   - `presentations`
-  - optionally `speakers` and join tables
+  - optionally `people`
   - optionally a view that unions sessions and presentations as schedulable
     agenda items.
-- If full author lists matter, extend the scraper to fetch each presentation
-  detail page and parse author/affiliation blocks.
+- Decide whether poster board numbers should remain in `location` or also be
+  split into a dedicated board field.
 
 ## Operational Notes
 
@@ -67,3 +67,5 @@ does not yet preserve full presentation authors/affiliations.
 - Network requests may need approval in the managed sandbox.
 - EventPilot API responses are malformed/nested XML-ish wrappers. Keep the
   tolerant parser unless the endpoint format changes.
+- Detail fetching uses bounded concurrency. If the app starts returning likely
+  limit errors, lower `--detail-workers` or increase `--detail-interval`.
