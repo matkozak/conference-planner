@@ -93,6 +93,37 @@ class DataIntegrityTest(unittest.TestCase):
         ]
         self.assertEqual([], duplicate_presentation_ids)
 
+    def test_presentation_categories_match_parent_sessions(self) -> None:
+        """Tripwire for the current agenda-table data model."""
+        missing = []
+        mismatches = []
+        for session in self.sessions:
+            session_id = str(session.get("id"))
+            session_category = session.get("category")
+            session_category_id = session.get("category_id")
+            for presentation in session.get("presentations", []):
+                presentation_id = str(presentation.get("id"))
+                if "category" not in presentation or "category_id" not in presentation:
+                    missing.append((session_id, presentation_id))
+                    continue
+                if (
+                    presentation.get("category") != session_category
+                    or presentation.get("category_id") != session_category_id
+                ):
+                    mismatches.append(
+                        (
+                            session_id,
+                            presentation_id,
+                            session_category,
+                            presentation.get("category"),
+                            session_category_id,
+                            presentation.get("category_id"),
+                        )
+                    )
+
+        self.assertEqual([], missing)
+        self.assertEqual([], mismatches)
+
     def test_sqlite_integrity_matches_json(self) -> None:
         with sqlite3.connect(SQLITE_PATH) as conn:
             self.assertEqual([], conn.execute("PRAGMA foreign_key_check").fetchall())
