@@ -9,14 +9,21 @@ official app.
 The latest completed dump is in `data/aaic_2026/`:
 
 - `data/aaic_2026/sessions.json`
+- `data/aaic_2026/people.json`
 - `data/aaic_2026/sessions.csv`
+- `data/aaic_2026/presentations_*.csv`
+- `data/aaic_2026/aaic_2026.sqlite`
 
 Verification from the completed run:
 
 - 360 parent sessions
 - 360 sessions with parsed locations
 - 6,850 nested presentations
+- 5,217 people records
 - 0 detail fetch errors
+- 0 people fetch errors
+- 0 missing people references
+- 0 parent/subsession/presentation consistency errors
 - CSV has 361 lines including the header
 
 ## Main Script
@@ -203,6 +210,18 @@ that unions sessions and presentations for schedule search. If `people.json` is
 missing, the exporter still creates placeholder people rows from ids referenced
 by sessions and presentations.
 
+## Verification
+
+The repository includes data integrity tests for the committed dump:
+
+```bash
+python3 -m unittest tests.test_data_integrity
+```
+
+The tests verify that all referenced people ids exist in `people.json`,
+subsession ids match embedded presentations, presentation parent ids are
+consistent, and SQLite foreign keys/row counts match the JSON source.
+
 See `STATUS.md` for current caveats and likely next modeling steps.
 
 ## Known Local Scratch Files
@@ -219,6 +238,7 @@ They are not required for normal use. The important files are:
 - `scripts/scrape_aaic.py`
 - `scripts/export_presentations_by_date.py`
 - `scripts/export_sqlite.py`
+- `tests/test_data_integrity.py`
 - `README.md`
 - `STATUS.md`
 - `data/aaic_2026/sessions.json`

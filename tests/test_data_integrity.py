@@ -39,6 +39,23 @@ class DataIntegrityTest(unittest.TestCase):
         self.assertEqual([], [pid for pid, person in self.people.items() if person.get("detail_error")])
         self.assertEqual([], [pid for pid, person in self.people.items() if not person.get("full_name")])
 
+    def test_speaker_ids_match_person_ids_in_current_dump(self) -> None:
+        """Tripwire for EventPilot data-shape changes, not a scraper invariant."""
+        mismatches = []
+        for session in self.sessions:
+            items = [("session", session.get("id"), session)]
+            items.extend(
+                ("presentation", presentation.get("id"), presentation)
+                for presentation in session.get("presentations", [])
+            )
+            for kind, item_id, item in items:
+                speaker_ids = list(map(str, item.get("speaker_ids", [])))
+                person_ids = list(map(str, item.get("person_ids", [])))
+                if speaker_ids != person_ids:
+                    mismatches.append((kind, item_id, speaker_ids, person_ids))
+
+        self.assertEqual([], mismatches)
+
     def test_subsessions_match_embedded_presentations(self) -> None:
         all_presentation_ids: list[str] = []
         for session in self.sessions:
