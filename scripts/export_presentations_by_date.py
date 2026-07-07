@@ -13,7 +13,15 @@ from pathlib import Path
 from typing import Any
 
 
-FIELDS = ["Session time", "Location", "Session name", "Time", "Title", "Presenter"]
+FIELDS = [
+    "Session time",
+    "Session category",
+    "Location",
+    "Session name",
+    "Time",
+    "Title",
+    "Presenter",
+]
 TIME_RE = re.compile(r"(?P<start>\d{1,2}:\d{2}\s*[ap]m)\s*-\s*(?P<end>\d{1,2}:\d{2}\s*[ap]m)", re.I)
 PRESENTATION_RE = re.compile(
     r"^(?P<start>\d{1,2}:\d{2}\s*[ap]m)\s*-\s*(?P<end>\d{1,2}:\d{2}\s*[ap]m)"
@@ -90,11 +98,9 @@ def parse_presentation(presentation: dict[str, Any]) -> tuple[str, str, int]:
 def rows_by_date(sessions: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for session in sessions:
-        if str(session.get("category") or "").casefold() == "poster":
-            continue
-
         session_date = str(session.get("date") or "unknown-date")
         session_time, session_start = parse_session_time(session)
+        session_category = str(session.get("category") or "")
         location = str(session.get("location") or "")
         session_name = str(session.get("title") or session.get("detail_title") or "")
         presentations = session.get("presentations", [])
@@ -103,6 +109,7 @@ def rows_by_date(sessions: list[dict[str, Any]]) -> dict[str, list[dict[str, Any
             rows[session_date].append(
                 {
                     "Session time": session_time,
+                    "Session category": session_category,
                     "Location": location,
                     "Session name": session_name,
                     "Time": "",
@@ -118,6 +125,7 @@ def rows_by_date(sessions: list[dict[str, Any]]) -> dict[str, list[dict[str, Any
             rows[session_date].append(
                 {
                     "Session time": session_time,
+                    "Session category": session_category,
                     "Location": location,
                     "Session name": session_name,
                     "Time": presentation_time,
