@@ -4,6 +4,7 @@
 
 - `scripts/scrape_aaic.py`: standard-library scraper for the AAIC 2026 EventPilot planner.
 - `scripts/export_presentations_by_date.py`: derived daily planning CSV exporter.
+- `scripts/export_sqlite.py`: normalized SQLite exporter for the JSON dump.
 - `data/aaic_2026/sessions.json`: full current structured dump.
 - `data/aaic_2026/sessions.csv`: compact parent-session CSV index.
 - `data/aaic_2026/presentations_*.csv`: one planning CSV per date.
@@ -49,33 +50,34 @@ speaker/person ids separately.
 
 ## People Roadmap
 
-The current dump keeps EventPilot `speaker_ids` and `person_ids`, but it does
-not yet fetch the `speakers` table. A probe showed that `table=speakers` records
-contain fields such as first name, last name, organization, degree, country, and
-optional profile metadata.
+The scraper can now fetch EventPilot `speakers` table records with `--people`
+and writes them to `people.json`, keyed by person id. The normalizer lifts common
+fields such as first name, last name, full name, organization, degree, city,
+state, country, and profile HTML while preserving the raw EventPilot payload.
 
-A pragmatic next step is:
+Remaining modeling choices:
 
-- Fetch unique `person_ids` from sessions and presentations.
-- Store normalized people records in JSON, either as a top-level `people` map or
-  a separate `people.json`.
 - Keep presentation `description_html` and `description_text` as the full
   author/affiliation source, because EventPilot's speaker ids usually identify
   the primary presenter rather than every author.
 - Defer parsing full author lists into structured author rows until it is clear
   that the formatting is consistent enough to trust.
 
-## SQLite Roadmap
+## SQLite Export
 
-When the JSON shape stabilizes, export to SQLite with a small normalized schema:
+`scripts/export_sqlite.py` exports the JSON dump to a small normalized schema:
 
 - `sessions`: parent agenda rows where `parent_id` is empty.
 - `presentations`: child agenda rows with `parent_session_id`.
 - `people`: records fetched from EventPilot's `speakers` table.
-- Optional join tables for session chairs/presenters once the semantics of
-  `speaker_ids` and `person_ids` are clear.
-- Optional `agenda_items` view that unions sessions and presentations for
-  schedule search.
+- `session_people` and `presentation_people`: join tables for referenced
+  `speaker_ids` and `person_ids`, with a simple `role` value of `speaker` or
+  `person`.
+- `agenda_items`: a view that unions sessions and presentations for schedule
+  search.
+
+If `people.json` has not been fetched, the exporter creates placeholder `people`
+rows for every referenced id so joins and foreign keys remain valid.
 
 Other modeling choices to settle:
 

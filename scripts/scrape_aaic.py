@@ -419,9 +419,58 @@ def fetch_agenda_item(item_id: str, cookie: str) -> dict[str, Any]:
     return normalize_agenda_item(decode_item_json(payload))
 
 
+def normalize_person(raw: dict[str, Any], person_id: str) -> dict[str, Any]:
+    first_name = str(raw.get("firstname") or raw.get("first") or raw.get("fname") or "")
+    last_name = str(raw.get("lastname") or raw.get("last") or raw.get("lname") or "")
+    full_name = clean_text(
+        str(
+            raw.get("name")
+            or raw.get("fullname")
+            or raw.get("displayname")
+            or f"{first_name} {last_name}"
+        )
+    )
+    organization = str(
+        raw.get("organization")
+        or raw.get("org")
+        or raw.get("company")
+        or raw.get("affiliation")
+        or ""
+    )
+    return {
+        "id": str(
+            raw.get("speakerid")
+            or raw.get("personid")
+            or raw.get("id")
+            or raw.get("tid")
+            or person_id
+        ),
+        "first_name": first_name,
+        "last_name": last_name,
+        "full_name": full_name,
+        "degree": str(raw.get("degree") or raw.get("degrees") or ""),
+        "organization": organization,
+        "country": str(raw.get("country") or ""),
+        "city": str(raw.get("city") or ""),
+        "state": str(raw.get("state") or raw.get("province") or ""),
+        "profile_html": str(raw.get("profile") or raw.get("bio") or raw.get("description") or ""),
+        "raw": raw,
+    }
+
+
+def fetch_person(person_id: str, cookie: str) -> dict[str, Any]:
+    payload = request(f"{BASE}/api.php", cookie, table_payload("speakers", person_id))
+    return normalize_person(decode_item_json(payload), person_id)
+
+
 def fetch_agenda_item_paced(item_id: str, cookie: str, pacer: RequestPacer) -> dict[str, Any]:
     pacer.wait()
     return fetch_agenda_item(item_id, cookie)
+
+
+def fetch_person_paced(person_id: str, cookie: str, pacer: RequestPacer) -> dict[str, Any]:
+    pacer.wait()
+    return fetch_person(person_id, cookie)
 
 
 def fetch_detail_paced(
@@ -434,6 +483,18 @@ def fetch_detail_paced(
     started = time.monotonic()
     detail = fetch_agenda_item_paced(session_id, cookie, pacer)
     return idx, total, session_id, detail, time.monotonic() - started
+
+
+def fetch_person_paced_job(
+    idx: int,
+    total: int,
+    person_id: str,
+    cookie: str,
+    pacer: RequestPacer,
+) -> tuple[int, int, str, dict[str, Any], float]:
+    started = time.monotonic()
+    person = fetch_person_paced(person_id, cookie, pacer)
+    return idx, total, person_id, person, time.monotonic() - started
 
 
 def discover_dates() -> list[str]:
@@ -476,6 +537,102 @@ def write_outputs(rows: list[dict[str, Any]], outdir: Path) -> None:
                     "presentation_count": len(row.get("presentations", [])),
                 }
             )
+
+
+def collect_person_ids(rows: list[dict[str, Any]]) -> list[str]:
+    ids: set[str] = set()
+    for row in rows:
+        ids.update(row.get("speaker_ids", []))
+        ids.update(row.get("person_ids", []))
+        for presentation in row.get("presentations", []):
+            ids.update(presentation.get("speaker_ids", []))
+            ids.update(presentation.get("person_ids", []))
+    return sorted(
+        ids,
+        key=lambda value: (not value.isdigit(), int(value) if value.isdigit() else value),
+    )
+
+
+def write_people(people: dict[str, dict[str, Any]], outdir: Path) -> None:
+    outdir.mkdir(parents=True, exist_ok=True)
+    ordered = {person_id: people[person_id] for person_id in sorted(people, key=str)}
+    (outdir / "people.json").write_text(json.dumps(ordered, indent=2, ensure_ascii=False))
+
+
+def fetch_people(
+    rows: list[dict[str, Any]],
+    cookie: str,
+    outdir: Path,
+    resume: bool,
+    workers: int,
+    interval_s: float,
+    save_every: int,
+    log_every: int,
+) -> dict[str, dict[str, Any]]:
+    person_ids = collect_person_ids(rows)
+    people: dict[str, dict[str, Any]] = {}
+    people_path = outdir / "people.json"
+    if resume and people_path.exists():
+        people = json.loads(people_path.read_text(encoding="utf-8"))
+
+    jobs = [person_id for person_id in person_ids if not (resume and person_id in people)]
+    if not jobs:
+        print(f"people: 0 rows to fetch ({len(people)} already present)", flush=True)
+        return people
+
+    workers = max(1, workers)
+    pacer = RequestPacer(interval_s)
+    completed = 0
+    changed = 0
+    print(
+        f"people: fetching {len(jobs)} rows with {workers} workers "
+        f"and {interval_s:.2f}s request-start interval",
+        flush=True,
+    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(
+                fetch_person_paced_job,
+                idx,
+                len(jobs),
+                person_id,
+                cookie,
+                pacer,
+            ): person_id
+            for idx, person_id in enumerate(jobs, 1)
+        }
+        for future in concurrent.futures.as_completed(futures):
+            person_id = futures[future]
+            completed += 1
+            changed += 1
+            try:
+                idx, total, _, person, elapsed_s = future.result()
+            except Exception as exc:
+                marker = " possible-rate-limit" if looks_like_rate_limit(exc) else ""
+                people[person_id] = {"id": person_id, "detail_error": str(exc)}
+                print(
+                    f"person {completed}/{len(jobs)} error {person_id}: "
+                    f"{type(exc).__name__}: {exc}{marker}",
+                    flush=True,
+                )
+            else:
+                people[person_id] = person
+                if completed == 1 or completed == len(jobs) or (
+                    log_every > 0 and completed % log_every == 0
+                ):
+                    print(
+                        f"person {completed}/{len(jobs)} ok row {idx}/{total}: "
+                        f"{person_id} {elapsed_s:.2f}s {person.get('full_name', '')!r}",
+                        flush=True,
+                    )
+
+            if save_every > 0 and changed >= save_every:
+                write_people(people, outdir)
+                changed = 0
+
+    if changed:
+        write_people(people, outdir)
+    return people
 
 
 def looks_like_rate_limit(exc: BaseException) -> bool:
@@ -641,6 +798,9 @@ def main() -> None:
     parser.add_argument("--save-every", type=int, default=100)
     parser.add_argument("--log-every", type=int, default=50)
     parser.add_argument("--no-details", action="store_true")
+    parser.add_argument("--people", action="store_true")
+    parser.add_argument("--people-workers", type=int, default=3)
+    parser.add_argument("--people-interval", type=float, default=0.05)
     parser.add_argument("--max-sessions", type=int, default=0)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
@@ -659,7 +819,7 @@ def main() -> None:
     if args.resume and (args.outdir / "sessions.json").exists():
         previous = json.loads((args.outdir / "sessions.json").read_text())
         previous_by_id = {row.get("id"): row for row in previous}
-        rows = [{**row, **previous_by_id.get(row["id"], {})} for row in rows]
+        rows = [previous_by_id.get(row["id"], row) for row in rows]
 
     write_outputs(rows, args.outdir)
 
@@ -676,6 +836,17 @@ def main() -> None:
         )
 
     write_outputs(rows, args.outdir)
+    if args.people:
+        fetch_people(
+            rows,
+            args.cookie,
+            args.outdir,
+            args.resume,
+            args.people_workers,
+            args.people_interval,
+            args.save_every,
+            args.log_every,
+        )
     print(f"Wrote {len(rows)} sessions to {args.outdir}", flush=True)
 
 

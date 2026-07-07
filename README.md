@@ -45,6 +45,10 @@ Useful options:
 - `--detail-interval 0.05`: minimum delay between detail request starts, in seconds.
 - `--save-every 100`: write partial JSON/CSV progress after this many detail results.
 - `--log-every 50`: log every Nth successful presentation detail; errors always log.
+- `--people`: fetch unique `speaker_ids`/`person_ids` from the EventPilot
+  `speakers` table and write `people.json`.
+- `--people-workers 3`: concurrent speaker/person fetches.
+- `--people-interval 0.05`: minimum delay between speaker/person request starts.
 
 Agenda detail records are fetched concurrently but conservatively. The default
 of 3 workers with a 0.05 second request-start interval is intended to get a
@@ -169,6 +173,36 @@ Each JSON session contains fields like:
 The session CSV is a compact parent-session index. Daily presentation CSVs in
 `data/aaic_2026/presentations_*.csv` are derived planning views.
 
+When fetched with `--people`, `data/aaic_2026/people.json` is a map keyed by
+EventPilot person id. Each record preserves the raw `speakers` table payload and
+normalizes common fields such as name, degree, organization, city/state, and
+country.
+
+## Derived Exports
+
+Daily presentation CSVs:
+
+```bash
+python3 scripts/export_presentations_by_date.py \
+  --input data/aaic_2026/sessions.json \
+  --outdir data/aaic_2026
+```
+
+SQLite:
+
+```bash
+python3 scripts/export_sqlite.py \
+  --sessions data/aaic_2026/sessions.json \
+  --people data/aaic_2026/people.json \
+  --output data/aaic_2026/aaic_2026.sqlite
+```
+
+The SQLite export creates normalized `sessions`, `presentations`, `people`,
+`session_people`, and `presentation_people` tables, plus an `agenda_items` view
+that unions sessions and presentations for schedule search. If `people.json` is
+missing, the exporter still creates placeholder people rows from ids referenced
+by sessions and presentations.
+
 See `STATUS.md` for current caveats and likely next modeling steps.
 
 ## Known Local Scratch Files
@@ -183,11 +217,15 @@ There are several probe files in the workspace from endpoint discovery:
 They are not required for normal use. The important files are:
 
 - `scripts/scrape_aaic.py`
+- `scripts/export_presentations_by_date.py`
+- `scripts/export_sqlite.py`
 - `README.md`
 - `STATUS.md`
 - `data/aaic_2026/sessions.json`
+- `data/aaic_2026/people.json` if fetched with `--people`
 - `data/aaic_2026/sessions.csv`
 - `data/aaic_2026/presentations_*.csv`
+- `data/aaic_2026/aaic_2026.sqlite` if exported
 
 ## Notes For Next Agent
 
