@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+
+# Local auth/session material
+cookies*.txt
+
+# Endpoint discovery scratch files
+EPFormat*.js
+EPUtility.js
+PlannerFilterFunctions.js
+planner*.html
+plantab*.html
+detail_*.html
+agenda_*.txt
+agenda_*.xml
+agenda_export.csv
+agenda_csv_headers.txt
+autocomplete_*.txt
+
+# Small validation runs
+aaic_sample/
