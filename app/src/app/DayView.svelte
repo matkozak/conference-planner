@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Session } from '../shared/types';
-  import { sessionsByDay } from './store.svelte';
+  import { gotoSearch, sessionsByDay } from './store.svelte';
   import { hhmm } from './format';
   import SessionCard from './SessionCard.svelte';
 
@@ -20,6 +20,14 @@
 </script>
 
 <main>
+  <!-- A decoy: focusing routes to the real search view, which autofocuses. -->
+  <input
+    class="search-input posters-search"
+    type="search"
+    placeholder="Search talks, posters, speakers, rooms…"
+    readonly
+    onfocus={gotoSearch}
+  />
   {#each groups as group (group.time)}
     <section>
       <h2 class="timeslot">{group.time}</h2>

@@ -1,10 +1,8 @@
 <script lang="ts">
-  import { gotoSession, posterSessionsByDay, search } from './store.svelte';
+  import { gotoSession, posterSessionsByDay, search, searchState } from './store.svelte';
   import { boardNo, dayLabel, posterTopic, timeRange } from './format';
 
-  let query = $state('');
-
-  const results = $derived(search(query, 60, 'posters'));
+  const results = $derived(search(searchState.posters, 60, 'posters'));
 
   // Computed once at mount; the program (and these maps) never change.
   const posterCount = [...posterSessionsByDay.values()]
@@ -17,10 +15,10 @@
     class="search-input posters-search"
     type="search"
     placeholder="Search {posterCount.toLocaleString('en')} posters…"
-    bind:value={query}
+    bind:value={searchState.posters}
   />
 
-  {#if query.trim().length >= 2}
+  {#if searchState.posters.trim().length >= 2}
     {#each results as result (result.talk?.id ?? result.session.id)}
       <button class="result" onclick={() => gotoSession(result.session.id, result.talk?.id)}>
         <div class="title">{result.talk?.title}</div>

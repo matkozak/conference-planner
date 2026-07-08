@@ -4,7 +4,8 @@
 
 - `scripts/scrape_aaic.py`: standard-library scraper for the AAIC 2026 EventPilot planner.
 - `scripts/export_presentations_by_date.py`: derived daily planning CSV exporter,
-  including parent session category for downstream filtering.
+  including parent session category for downstream filtering and presenter names
+  resolved from `people.json`.
 - `scripts/export_sqlite.py`: normalized SQLite exporter for the JSON dump.
 - `tests/test_data_integrity.py`: JSON/SQLite consistency tests for the committed dump.
 - `data/aaic_2026/sessions.json`: full current structured dump.

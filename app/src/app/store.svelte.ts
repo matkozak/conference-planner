@@ -22,6 +22,9 @@ export const ui = $state({
   error: "",
 });
 
+/** Search inputs live here (not in components) so browser/app back keeps them. */
+export const searchState = $state({ query: "", posters: "" });
+
 // --- Immutable program indexes (filled once by init) ---
 
 export const sessionsById = new Map<string, Session>();
@@ -40,6 +43,11 @@ export function isPosterSession(s: Session): boolean {
 const scrollPositions = new Map<string, number>();
 let currentHash = "";
 
+// In-app back stack of previous hashes, deduped: navigating to a page that is
+// already on the stack truncates back to it, so day ↔ session ping-pong can't
+// grow the stack or trap the user in a loop ("unique previous").
+const backStack: string[] = [];
+
 export function savedScroll(hash: string): number {
   return scrollPositions.get(hash) ?? 0;
 }
@@ -48,7 +56,11 @@ export async function init(): Promise<void> {
   currentHash = location.hash;
   window.addEventListener("hashchange", () => {
     scrollPositions.set(currentHash, window.scrollY);
+    const previous = currentHash;
     currentHash = location.hash;
+    const seenAt = backStack.lastIndexOf(currentHash);
+    if (seenAt >= 0) backStack.length = seenAt;
+    else if (previous && previous !== currentHash) backStack.push(previous);
     ui.route = parseHash();
   });
   try {
@@ -99,9 +111,20 @@ export function gotoHome(): void {
 }
 
 /**
- * Up one level in the hierarchy (not browser-back): a session belongs to its
- * day (or to the Posters tab for poster sessions); everything else goes home.
- * The browser back button keeps its native history semantics.
+ * The header arrow: return to the unique previous in-app page. Falls back to
+ * hierarchy-up (goUp) when there is no previous page, e.g. on a shared deep
+ * link. The browser back button keeps its native history semantics.
+ */
+export function goBack(): void {
+  const previous = backStack[backStack.length - 1];
+  // The hashchange handler recognizes the revisit and truncates the stack.
+  if (previous !== undefined) location.hash = previous;
+  else goUp();
+}
+
+/**
+ * Up one level in the hierarchy: a session belongs to its day (or to the
+ * Posters tab for poster sessions); everything else goes home.
  */
 export function goUp(): void {
   const route = ui.route;

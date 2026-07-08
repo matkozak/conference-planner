@@ -8,6 +8,20 @@
   let newBody = $state('');
   let editingId = $state<number | null>(null);
   let editBody = $state('');
+  let confirmingId = $state<number | null>(null);
+  let confirmTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Two-tap delete: first tap arms the button for 3 s, second tap deletes. */
+  function askDelete(id: number): void {
+    if (confirmTimer) clearTimeout(confirmTimer);
+    if (confirmingId === id) {
+      deleteNote(id);
+      confirmingId = null;
+    } else {
+      confirmingId = id;
+      confirmTimer = setTimeout(() => (confirmingId = null), 3000);
+    }
+  }
 
   function submit(): void {
     const trimmed = newBody.trim();
@@ -68,7 +82,9 @@
         {#if note.author === currentUser.email}
           <div class="note-actions">
             <button class="note-btn" onclick={() => startEdit(note.id, note.body)}>Edit</button>
-            <button class="note-btn danger" onclick={() => deleteNote(note.id)}>Delete</button>
+            <button class="note-btn danger" class:armed={confirmingId === note.id} onclick={() => askDelete(note.id)}>
+              {confirmingId === note.id ? 'Really delete?' : 'Delete'}
+            </button>
           </div>
         {/if}
       {/if}
@@ -127,6 +143,7 @@
   .note-actions {
     display: flex;
     gap: 0.5rem;
+    margin-top: 0.5rem;
   }
 
   .note-btn {
@@ -146,6 +163,12 @@
   .note-btn.danger {
     color: #c44;
     border-color: #c44;
+  }
+
+  .note-btn.danger.armed {
+    background: #c44;
+    color: #fff;
+    font-weight: 600;
   }
 
   .note-edit, .note-input {

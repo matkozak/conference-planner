@@ -82,6 +82,16 @@ def first_author(value: str) -> str:
     return re.sub(r"\s*\d+$", "", first_name).strip()
 
 
+def person_names(item: dict[str, Any], people: dict[str, dict[str, Any]]) -> str:
+    names = []
+    for person_id in item.get("speaker_ids", []) or item.get("person_ids", []):
+        person = people.get(str(person_id), {})
+        name = str(person.get("full_name") or "").strip()
+        if name and name not in names:
+            names.append(name)
+    return "; ".join(names)
+
+
 def parse_presentation(presentation: dict[str, Any]) -> tuple[str, str, int]:
     iso_range = format_iso_range(presentation)
     if iso_range:
@@ -95,7 +105,10 @@ def parse_presentation(presentation: dict[str, Any]) -> tuple[str, str, int]:
     return time_text, match.group("presenter") or "", start_minutes
 
 
-def rows_by_date(sessions: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+def rows_by_date(
+    sessions: list[dict[str, Any]],
+    people: dict[str, dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
     rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for session in sessions:
         session_date = str(session.get("date") or "unknown-date")
@@ -121,7 +134,8 @@ def rows_by_date(sessions: list[dict[str, Any]]) -> dict[str, list[dict[str, Any
             continue
 
         for presentation in presentations:
-            presentation_time, presenter, presentation_start = parse_presentation(presentation)
+            presentation_time, fallback_presenter, presentation_start = parse_presentation(presentation)
+            presenter = person_names(presentation, people) or fallback_presenter
             rows[session_date].append(
                 {
                     "Session time": session_time,
@@ -160,11 +174,13 @@ def write_csvs(rows: dict[str, list[dict[str, Any]]], outdir: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, default=Path("data/aaic_2026/sessions.json"))
+    parser.add_argument("--people", type=Path, default=Path("data/aaic_2026/people.json"))
     parser.add_argument("--outdir", type=Path, default=Path("data/aaic_2026"))
     args = parser.parse_args()
 
     sessions = json.loads(args.input.read_text(encoding="utf-8"))
-    rows = rows_by_date(sessions)
+    people = json.loads(args.people.read_text(encoding="utf-8")) if args.people.exists() else {}
+    rows = rows_by_date(sessions, people)
     write_csvs(rows, args.outdir)
     print(f"Wrote {len(rows)} presentation CSV files to {args.outdir}")
 

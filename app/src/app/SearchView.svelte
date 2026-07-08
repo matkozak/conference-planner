@@ -1,10 +1,8 @@
 <script lang="ts">
-  import { entryKind, goUp, gotoSession, search } from './store.svelte';
+  import { entryKind, goBack, gotoSession, search, searchState } from './store.svelte';
   import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from './format';
 
-  let query = $state('');
-
-  const results = $derived(search(query));
+  const results = $derived(search(searchState.query));
 
   const KIND_LABEL = {
     session: 'Session',
@@ -19,12 +17,12 @@
 </script>
 
 <header class="topbar">
-  <button class="back" onclick={goUp} aria-label="Home">←</button>
+  <button class="back" onclick={goBack} aria-label="Back">←</button>
   <input
     class="search-input"
     type="search"
     placeholder="Talks, posters, sessions, speakers, rooms…"
-    bind:value={query}
+    bind:value={searchState.query}
     use:focus
   />
 </header>
@@ -54,7 +52,7 @@
       </div>
     </button>
   {:else}
-    {#if query.trim().length >= 2}
+    {#if searchState.query.trim().length >= 2}
       <p class="empty">No matches.</p>
     {:else}
       <p class="empty">Type at least two characters.</p>

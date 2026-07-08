@@ -192,6 +192,7 @@ Daily presentation CSVs:
 ```bash
 python3 scripts/export_presentations_by_date.py \
   --input data/aaic_2026/sessions.json \
+  --people data/aaic_2026/people.json \
   --outdir data/aaic_2026
 ```
 
