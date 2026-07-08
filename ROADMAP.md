@@ -61,7 +61,7 @@ names) is ~1.7 MB gzipped. So:
 
 ```
 app/
-  package.json          # single package, no workspaces
+  package.json          # single package (pnpm-workspace.yaml is config only)
   wrangler.jsonc
   scripts/build-program.ts
   src/
@@ -73,23 +73,35 @@ app/
 
 ## Milestones
 
-Status 2026-07-08: M1–M3 shipped and live at aaic2026.kozak.ch, correctness
-review pass applied (notes reactivity, CSV title join + BOM, back-nav,
-reconnect backoff). Two polish rounds shipped on top: a Posters tab (posters
-out of the daily program, board-number search), honest search-result kinds
-with talk-level deep links (`#/s/<session>/<talk>`), sorted talks, HTML
-descriptions, unique-previous back stack with scroll restoration, persistent
-search queries, two-tap note deletion, and a day-view search bar. Search was
-then settled as scoped-plus-global: each day view filters that day only, the
-Posters tab filters posters, and a Search tab covers everything (sharing the
-day views' query, with an opt-in "also search abstracts" toggle). Ranking is
-two-pass — exact substring matches always precede typo-tolerant ones, with a
-visible "close matches" divider — and primary-speaker organizations are
-indexed, so company names ("Roche") hit their talks. One universal sticky
-topbar (back arrow + tabs in session detail) navigates everything. The Zero
-Trust org label was renamed to "kozak.ch". From M4, RSVPs and the "My stuff"
-view are built; tags were dropped and offline polish deferred (the immutable
-program asset already covers most of it).
+Status 2026-07-08 (end of build day): **M1–M4 shipped** and live at
+aaic2026.kozak.ch. Remaining before the conference: extend the Access
+allowlist to the whole team. A few aesthetic nits are parked for a future
+session.
+
+Key decisions and features layered on top of the original milestones:
+
+- **Search**: scoped-plus-global. Each day view filters that day only; the
+  Posters tab filters posters; a Search tab covers everything (shares the
+  day views' query; opt-in "also search abstracts" toggle — abstracts carry
+  co-author/affiliation noise, so they're out of the default index).
+  Two-pass ranking: exact substring matches always precede typo-tolerant
+  backfill, split by a visible "close matches" divider. Primary-speaker
+  organizations are indexed, so company names ("Roche") hit their talks.
+  Every search box has a clear (×) button.
+- **Navigation**: one universal sticky topbar (back arrow + tabs in session
+  detail, with the session's day tab lit). Uniform pills; active state
+  changes colors only (no metric shift) and `scrollbar-gutter: stable`
+  keeps layout fixed. Under 620px the bar compacts to day numbers +
+  Posters/Me icons; the back arrow and Search tab disappear (swipe-back and
+  the day views' "Search all days →" row cover them).
+- **Notes**: two-tap delete; timestamps as "8 Jul 14:32" local; shared
+  NoteCard component renders them identically in session detail and Me.
+- **Earlier polish**: honest search-result kinds with talk-level deep links
+  (`#/s/<session>/<talk>`), sorted talks, sanitized-HTML descriptions,
+  unique-previous back stack with scroll restoration, persistent queries,
+  "Name, Org" speaker lines on expanded talks.
+- **Tooling**: pnpm (lockfile `pnpm-lock.yaml`, build scripts allowlisted
+  in `package.json`). The Zero Trust org label is "kozak.ch".
 
 ### M1 — Walking skeleton (get the pipeline proven early)
 
@@ -123,11 +135,24 @@ created_at, updated_at)`.
   detail view, aggregated team initials (session ∪ its talks) on day cards.
   `rsvps(item_id, author)` table in the NotebookDO, idempotent `rsvp:set`
   toggle message, included in the WS snapshot.
-- ✅ "My stuff" view (`#/me`, "Me" tab): my RSVP schedule grouped by day and
-  my notes, with jump-to-item links.
+- ✅ "My stuff" view (`#/me`, "Me" tab): my RSVP schedule grouped by day
+  (times + rooms/boards) and my notes — editable/deletable in place, with
+  jump-to-item links.
 - ✂️ Controlled-vocabulary tags — dropped (2026-07-08).
 - ✂️ Offline polish — deferred; the immutable-cached program asset covers
   the browsing case already.
+
+## Parked for a future session
+
+- A couple of aesthetic nits (Mateusz has a list).
+- Search kind filters (talks/posters/sessions) in the Search tab — wanted,
+  but explicitly "ship the basics first".
+- RSVPs in the CSV export if the central authority asks (~10 lines in the
+  export route).
+- Re-enable pnpm's `verifyDepsBeforeRun` once its internal crash is fixed
+  upstream (disabled in `pnpm-workspace.yaml`, see comment).
+- If plain day numbers in the mobile topbar prove too terse, fall back to
+  two-line weekday-initial pills.
 
 ## Deliberately not doing
 

@@ -233,16 +233,7 @@ consistent, and SQLite foreign keys/row counts match the JSON source.
 
 See `STATUS.md` for current caveats and likely next modeling steps.
 
-## Known Local Scratch Files
-
-There are several probe files in the workspace from endpoint discovery:
-
-- `planner.html`, `plantab_agenda.html`, `detail_S510.html`
-- `EPUtility.js`, `EPFormat*.js`, `PlannerFilterFunctions.js`
-- `agenda_*.txt`, `agenda_*.xml`, `autocomplete_*.txt`, `cookies*.txt`
-- `aaic_sample/`
-
-They are not required for normal use. The important files are:
+## Important Files
 
 - `scripts/scrape_aaic.py`
 - `scripts/export_presentations_by_date.py`
