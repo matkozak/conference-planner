@@ -97,8 +97,15 @@ button {
   display: none;
 }
 
-/* Compact topbar: day numbers + section icons; fits a 360px screen. */
+/* Compact topbar: day numbers + section icons; fits a 360px screen.
+   The back arrow (swipe covers it) and the Search tab (day search links
+   to it) are dropped entirely — focus on today. */
 @media (max-width: 620px) {
+  .back,
+  .search-tab {
+    display: none;
+  }
+
   .tab-wd,
   .tab-text {
     display: none;

@@ -81,7 +81,7 @@
         <span class="tab-text">Posters</span>
       </button>
       <button
-        class="day-tab"
+        class="day-tab search-tab"
         class:active={ui.route.view === 'search'}
         aria-label="Search"
         onclick={gotoSearch}

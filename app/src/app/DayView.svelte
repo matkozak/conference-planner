@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Session } from '../shared/types';
-  import { search, searchState, sessionsByDay } from './store.svelte';
+  import { gotoSearch, search, searchState, sessionsByDay } from './store.svelte';
   import { dayTab, hhmm } from './format';
   import SearchBox from './SearchBox.svelte';
   import SessionCard from './SessionCard.svelte';
@@ -35,8 +35,9 @@
     <SearchResults
       entries={results.entries}
       exactCount={results.exactCount}
-      emptyText="No matches on {dayTab(day)} — try the Search tab for all days."
+      emptyText="No matches on {dayTab(day)}."
     />
+    <button class="all-days" onclick={gotoSearch}>Search all days →</button>
   {:else}
     {#each groups as group (group.time)}
       <section>
@@ -50,3 +51,16 @@
     {/each}
   {/if}
 </main>
+
+<style>
+  .all-days {
+    display: block;
+    margin: 0.25rem auto 1rem;
+    padding: 0.375rem 1rem;
+    border-radius: 999px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+</style>
