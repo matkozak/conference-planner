@@ -2,7 +2,8 @@
   import type { SearchEntry } from './store.svelte';
   import { gotoSession, itemsById } from './store.svelte';
   import { currentUser, notes, rsvps } from './notebook.svelte';
-  import { boardNo, dayLabel, displayTitle, hhmm, noteStamp } from './format';
+  import { boardNo, dayLabel, displayTitle, hhmm } from './format';
+  import NoteCard from './NoteCard.svelte';
 
   interface PlanItem {
     entry: SearchEntry;
@@ -78,15 +79,14 @@
   {/if}
   {#each myNotes as note (note.id)}
     {@const entry = itemsById.get(note.item_id)}
-    <button class="row note-row" onclick={() => entry && open(entry)}>
-      <span class="what">
-        {#if entry}
-          <span class="in">{itemTitle(entry)}</span>
-        {/if}
-        <span class="body">{note.body}</span>
-      </span>
-      <span class="time">{noteStamp(note.created_at, false)}</span>
-    </button>
+    <div class="note-block">
+      {#if entry}
+        <button class="note-context" onclick={() => open(entry)}>
+          {itemTitle(entry)} →
+        </button>
+      {/if}
+      <NoteCard {note} />
+    </div>
   {/each}
 </main>
 
@@ -154,11 +154,17 @@
     font-weight: 600;
   }
 
-  .note-row .body {
-    white-space: pre-line;
+  .note-block {
+    margin-bottom: 0.75rem;
   }
 
-  .note-row .time {
-    margin-left: auto;
+  .note-context {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-size: 0.8125rem;
+    color: var(--muted);
+    padding: 0 0.125rem 0.25rem;
+    cursor: pointer;
   }
 </style>
