@@ -197,9 +197,10 @@ main {
 }
 
 .desc {
-  white-space: pre-line;
+  /* description is sanitized HTML with its own <br> structure */
   font-size: 0.9375rem;
   color: var(--text);
+  overflow-wrap: break-word;
 }
 
 .detail h2 {
@@ -243,7 +244,21 @@ main {
   font-size: 0.875rem;
 }
 
+.day-tab.posters-tab {
+  border: 1px solid var(--border);
+}
+
+.day-tab.posters-tab.active {
+  border-color: var(--accent);
+}
+
 /* --- Search --- */
+
+.posters-search {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
 
 .search-input {
   flex: 1;

@@ -31,6 +31,29 @@ export function localToday(): string {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
+/** "2026-07-12" → "Sun 12" (compact form for the tab bar). */
+export function dayTab(date: string): string {
+  return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+  });
+}
+
+/** "Board no. Sunday-0149" → "Sunday-0149"; other locations unchanged. */
+export function boardNo(location?: string): string {
+  return location?.startsWith("Board no. ")
+    ? location.slice("Board no. ".length)
+    : (location ?? "");
+}
+
+/**
+ * Poster session titles carry a redundant "[In-Person Posters Sun]" style
+ * prefix; the Posters tab already groups by day, so strip it there.
+ */
+export function posterTopic(s: Session): string {
+  return displayTitle(s).replace(/^\[[^\]]*\]\s*/, "");
+}
+
 /** Many titles repeat their category ("Plenary - Opening…"); strip the echo. */
 export function displayTitle(s: Session): string {
   const prefix = `${s.category} - `;

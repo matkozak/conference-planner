@@ -1,10 +1,17 @@
 <script lang="ts">
-  import { goBack, gotoSession, search } from './store.svelte';
-  import { dayLabel, displayTitle, hhmm, timeRange } from './format';
+  import { entryKind, goUp, gotoSession, search } from './store.svelte';
+  import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from './format';
 
   let query = $state('');
 
   const results = $derived(search(query));
+
+  const KIND_LABEL = {
+    session: 'Session',
+    posters: 'Posters',
+    talk: 'Talk',
+    poster: 'Poster',
+  } as const;
 
   function focus(node: HTMLElement): void {
     node.focus();
@@ -12,11 +19,11 @@
 </script>
 
 <header class="topbar">
-  <button class="back" onclick={goBack} aria-label="Back">←</button>
+  <button class="back" onclick={goUp} aria-label="Home">←</button>
   <input
     class="search-input"
     type="search"
-    placeholder="Talks, sessions, speakers, rooms…"
+    placeholder="Talks, posters, sessions, speakers, rooms…"
     bind:value={query}
     use:focus
   />
@@ -24,20 +31,25 @@
 
 <main>
   {#each results as result (result.talk?.id ?? result.session.id)}
-    <button class="result" onclick={() => gotoSession(result.session.id)}>
+    {@const kind = entryKind(result)}
+    <button class="result" onclick={() => gotoSession(result.session.id, result.talk?.id)}>
       <div class="title">
         {result.talk ? result.talk.title : displayTitle(result.session)}
       </div>
       <div class="meta">
-        <span class="kind">{result.talk ? 'Talk' : 'Session'}</span>
+        <span class="kind">{KIND_LABEL[kind]}</span>
         <span>{dayLabel(result.session.date)}</span>
-        <span class="time">
-          {result.talk
-            ? hhmm(result.talk.starts_at)
-            : timeRange(result.session.starts_at, result.session.ends_at)}
-        </span>
-        {#if result.talk?.location ?? result.session.location}
-          <span>{result.talk?.location ?? result.session.location}</span>
+        {#if kind === 'poster'}
+          {#if result.talk?.location}<span>{boardNo(result.talk.location)}</span>{/if}
+        {:else}
+          <span class="time">
+            {result.talk
+              ? hhmm(result.talk.starts_at)
+              : timeRange(result.session.starts_at, result.session.ends_at)}
+          </span>
+          {#if result.talk?.location ?? result.session.location}
+            <span>{result.talk?.location ?? result.session.location}</span>
+          {/if}
         {/if}
       </div>
     </button>

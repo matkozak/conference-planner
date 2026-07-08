@@ -105,6 +105,9 @@ created_at, updated_at)`.
 - Controlled-vocabulary tags (abeta mabs, ARIA, tau, neuroinflammation,
   a-syn, …) on sessions/talks.
 - Offline polish: cache the program in a service worker / localStorage.
+- "My stuff" view: all of the user's own notes (and later RSVPs/tags) in one
+  place, with jump-to-item links — requested for deleting/reviewing one's own
+  contributions.
 
 ## Deliberately not doing
 

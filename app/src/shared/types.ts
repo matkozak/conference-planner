@@ -26,7 +26,10 @@ export interface Presentation {
   ends_at?: string;
   location?: string;
   speaker_ids?: string[];
-  /** Author/affiliation block and abstract, plain text. */
+  /**
+   * Author/affiliation block and abstract. Sanitized HTML restricted to bare
+   * formatting tags (b/br/sup/sub/i/em/strong/p) — safe to render directly.
+   */
   description?: string;
 }
 

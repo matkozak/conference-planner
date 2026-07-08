@@ -1,15 +1,28 @@
 <script lang="ts">
-  import { goBack, sessionsById, speakerNames } from './store.svelte';
-  import { dayLabel, displayTitle, hhmm, timeRange } from './format';
+  import { goUp, isPosterSession, sessionsById, speakerNames } from './store.svelte';
+  import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from './format';
   import NoteList from './NoteList.svelte';
 
-  let { id }: { id: string } = $props();
+  let { id, talk }: { id: string; talk?: string } = $props();
 
   const session = $derived(sessionsById.get(id));
+  const poster = $derived(session ? isPosterSession(session) : false);
+
+  /** Which talks are expanded; bodies (abstract + notes) render lazily. */
+  let expanded = $state<Record<string, boolean>>({});
+
+  // Deep link (#/s/S584/P8616): expand the talk and scroll to it.
+  $effect(() => {
+    if (!talk) return;
+    expanded[talk] = true;
+    requestAnimationFrame(() => {
+      document.getElementById(`talk-${talk}`)?.scrollIntoView({ block: 'start' });
+    });
+  });
 </script>
 
 <header class="topbar">
-  <button class="back" onclick={goBack} aria-label="Back">←</button>
+  <button class="back" onclick={goUp} aria-label="Up">←</button>
   <h1 class="bar-title">{session ? displayTitle(session) : 'Session not found'}</h1>
 </header>
 
@@ -27,27 +40,36 @@
       <p class="speakers">{speakerNames(session).join(' · ')}</p>
     {/if}
     {#if session.description}
-      <p class="desc">{session.description}</p>
+      <p class="desc">{@html session.description}</p>
     {/if}
 
     {#if session.presentations.length}
-      <h2>{session.presentations.length} talks</h2>
-      {#each session.presentations as talk (talk.id)}
-        <details class="talk">
+      <h2>{session.presentations.length} {poster ? 'posters' : 'talks'}</h2>
+      {#each session.presentations as item (item.id)}
+        <details
+          class="talk"
+          id={`talk-${item.id}`}
+          open={expanded[item.id] ?? false}
+          ontoggle={(e) => (expanded[item.id] = e.currentTarget.open)}
+        >
           <summary>
-            <span class="time">{hhmm(talk.starts_at) || '·'}</span>
-            <span>{talk.title}</span>
+            <span class="time">
+              {(poster ? boardNo(item.location) : hhmm(item.starts_at)) || '·'}
+            </span>
+            <span>{item.title}</span>
           </summary>
-          {#if talk.location && talk.location !== session.location}
-            <p class="meta">{talk.location}</p>
+          {#if expanded[item.id]}
+            {#if !poster && item.location && item.location !== session.location}
+              <p class="meta">{item.location}</p>
+            {/if}
+            {#if speakerNames(item).length}
+              <p class="speakers">{speakerNames(item).join(' · ')}</p>
+            {/if}
+            {#if item.description}
+              <p class="desc">{@html item.description}</p>
+            {/if}
+            <NoteList itemId={item.id} />
           {/if}
-          {#if speakerNames(talk).length}
-            <p class="speakers">{speakerNames(talk).join(' · ')}</p>
-          {/if}
-          {#if talk.description}
-            <p class="desc">{talk.description}</p>
-          {/if}
-          <NoteList itemId={talk.id} />
         </details>
       {/each}
     {/if}

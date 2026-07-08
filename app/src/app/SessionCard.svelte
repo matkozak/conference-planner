@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Session } from '../shared/types';
-  import { gotoSession } from './store.svelte';
+  import { gotoSession, isPosterSession } from './store.svelte';
   import { displayTitle, timeRange } from './format';
 
   let { session }: { session: Session } = $props();
@@ -15,7 +15,10 @@
   <div class="meta">
     {#if session.category}<span class="chip">{session.category}</span>{/if}
     {#if session.presentations.length}
-      <span>{session.presentations.length} talks</span>
+      <span>
+        {session.presentations.length}
+        {isPosterSession(session) ? 'posters' : 'talks'}
+      </span>
     {/if}
   </div>
 </button>

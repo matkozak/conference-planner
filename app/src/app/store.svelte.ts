@@ -12,7 +12,8 @@ import { displayTitle, localToday } from "./format";
 
 export type Route =
   | { view: "day"; day: string }
-  | { view: "session"; id: string }
+  | { view: "session"; id: string; talk?: string }
+  | { view: "posters" }
   | { view: "search" };
 
 export const ui = $state({
@@ -24,20 +25,29 @@ export const ui = $state({
 // --- Immutable program indexes (filled once by init) ---
 
 export const sessionsById = new Map<string, Session>();
+/** Non-poster sessions per day: the daily program. */
 export const sessionsByDay = new Map<string, Session[]>();
+/** Poster sessions per day: shown in the Posters tab. */
+export const posterSessionsByDay = new Map<string, Session[]>();
+
+export function isPosterSession(s: Session): boolean {
+  return s.category === "Poster";
+}
 
 // --- Init & routing ---
 
-// One-level back target within the app. We track it ourselves because
-// history.back() could leave the SPA (e.g. to the Access login redirect)
-// when a session was opened via a shared deep link.
-let backHash: string | null = null;
+// Scroll positions per hash so back/up navigation restores where you were.
+const scrollPositions = new Map<string, number>();
 let currentHash = "";
+
+export function savedScroll(hash: string): number {
+  return scrollPositions.get(hash) ?? 0;
+}
 
 export async function init(): Promise<void> {
   currentHash = location.hash;
   window.addEventListener("hashchange", () => {
-    backHash = currentHash;
+    scrollPositions.set(currentHash, window.scrollY);
     currentHash = location.hash;
     ui.route = parseHash();
   });
@@ -57,8 +67,9 @@ export async function init(): Promise<void> {
 function parseHash(): Route {
   const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
   if (parts[0] === "s" && parts[1] && sessionsById.has(parts[1])) {
-    return { view: "session", id: parts[1] };
+    return { view: "session", id: parts[1], talk: parts[2] };
   }
+  if (parts[0] === "posters") return { view: "posters" };
   if (parts[0] === "search") return { view: "search" };
   if (parts[0] === "day" && parts[1] && sessionsByDay.has(parts[1])) {
     return { view: "day", day: parts[1] };
@@ -71,17 +82,37 @@ export function gotoDay(day: string): void {
   location.hash = `#/day/${day}`;
 }
 
-export function gotoSession(id: string): void {
-  location.hash = `#/s/${id}`;
+export function gotoSession(id: string, talk?: string): void {
+  location.hash = talk ? `#/s/${id}/${talk}` : `#/s/${id}`;
+}
+
+export function gotoPosters(): void {
+  location.hash = "#/posters";
 }
 
 export function gotoSearch(): void {
   location.hash = "#/search";
 }
 
-export function goBack(): void {
-  if (backHash !== null && backHash !== location.hash) location.hash = backHash;
-  else location.hash = `#/day/${initialDay()}`;
+export function gotoHome(): void {
+  location.hash = `#/day/${initialDay()}`;
+}
+
+/**
+ * Up one level in the hierarchy (not browser-back): a session belongs to its
+ * day (or to the Posters tab for poster sessions); everything else goes home.
+ * The browser back button keeps its native history semantics.
+ */
+export function goUp(): void {
+  const route = ui.route;
+  if (route?.view === "session") {
+    const session = sessionsById.get(route.id);
+    if (session && isPosterSession(session)) gotoPosters();
+    else if (session) gotoDay(session.date);
+    else gotoHome();
+  } else {
+    gotoHome();
+  }
 }
 
 // --- Day stickiness: an explicit choice wins for the rest of that real day,
@@ -129,11 +160,19 @@ export function speakerNames(item: Presentation): string[] {
   });
 }
 
-// --- Fuzzy search over sessions and talks ---
+// --- Fuzzy search over sessions, talks, and posters ---
+
+export type EntryKind = "session" | "posters" | "talk" | "poster";
 
 export interface SearchEntry {
   session: Session;
   talk?: Presentation;
+}
+
+export function entryKind(entry: SearchEntry): EntryKind {
+  const poster = isPosterSession(entry.session);
+  if (entry.talk) return poster ? "poster" : "talk";
+  return poster ? "posters" : "session";
 }
 
 const haystack: string[] = [];
@@ -145,10 +184,18 @@ function buildIndexes(program: Program): void {
     (a.starts_at ?? "").localeCompare(b.starts_at ?? "") ||
     a.title.localeCompare(b.title);
 
-  for (const day of program.days) sessionsByDay.set(day, []);
+  for (const day of program.days) {
+    sessionsByDay.set(day, []);
+    posterSessionsByDay.set(day, []);
+  }
   for (const s of [...program.sessions].sort(byStart)) {
     sessionsById.set(s.id, s);
-    sessionsByDay.get(s.date)?.push(s);
+    const dayMap = isPosterSession(s) ? posterSessionsByDay : sessionsByDay;
+    dayMap.get(s.date)?.push(s);
+  }
+  // Drop days that have no poster sessions at all (keeps the tab tidy).
+  for (const [day, list] of posterSessionsByDay) {
+    if (list.length === 0) posterSessionsByDay.delete(day);
   }
 
   const names = (ids?: string[]) =>
@@ -172,14 +219,23 @@ function buildIndexes(program: Program): void {
   }
 }
 
-export function search(query: string, limit = 40): SearchEntry[] {
+export function search(
+  query: string,
+  limit = 40,
+  scope: "all" | "posters" = "all",
+): SearchEntry[] {
   const q = query.trim();
   if (q.length < 2) return [];
   const [idxs, info, order] = uf.search(haystack, q, 1, 1000);
   if (!idxs?.length) return [];
   const ranked = order && info ? order.map((i) => info.idx[i] ?? 0) : [...idxs];
-  return ranked.slice(0, limit).flatMap((i) => {
+  const out: SearchEntry[] = [];
+  for (const i of ranked) {
     const entry = searchEntries[i];
-    return entry ? [entry] : [];
-  });
+    if (!entry) continue;
+    if (scope === "posters" && entryKind(entry) !== "poster") continue;
+    out.push(entry);
+    if (out.length >= limit) break;
+  }
+  return out;
 }

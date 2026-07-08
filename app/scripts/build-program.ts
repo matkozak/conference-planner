@@ -41,6 +41,7 @@ interface RawItem {
   session_number?: string;
   speaker_ids?: string[];
   description_text?: string;
+  description_html?: string;
   presentations?: RawItem[];
 }
 
@@ -62,6 +63,50 @@ function prune<T extends object>(obj: T): T {
   ) as T;
 }
 
+/**
+ * The scraped description_html only ever contains <sup>/<b>/<br>/<p> (verified
+ * against the full dump), but sanitize defensively anyway: keep an allowlist
+ * of bare formatting tags, strip all attributes and everything else.
+ */
+const ALLOWED_TAGS = new Set([
+  "b",
+  "br",
+  "sup",
+  "sub",
+  "i",
+  "em",
+  "strong",
+  "p",
+]);
+
+export function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(
+      /<\s*(\/?)\s*([a-zA-Z0-9]+)[^>]*>/g,
+      (_m, slash: string, tag: string) =>
+        ALLOWED_TAGS.has(tag.toLowerCase())
+          ? `<${slash}${tag.toLowerCase()}>`
+          : "",
+    );
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** Prefer the (sanitized) HTML description; fall back to escaped plain text. */
+export function descriptionOf(raw: RawItem): string | undefined {
+  const html = raw.description_html?.trim();
+  if (html) return sanitizeHtml(html);
+  const text = raw.description_text?.trim();
+  if (text) return escapeHtml(text).replace(/\n/g, "<br>");
+  return undefined;
+}
+
 export function trimPresentation(raw: RawItem): Presentation {
   return prune({
     id: raw.id,
@@ -70,17 +115,25 @@ export function trimPresentation(raw: RawItem): Presentation {
     ends_at: raw.ends_at,
     location: raw.location,
     speaker_ids: raw.speaker_ids?.length ? raw.speaker_ids : undefined,
-    description: raw.description_text || undefined,
+    description: descriptionOf(raw),
   });
 }
 
 export function trimSession(raw: RawItem): Session {
   if (!raw.date) throw new Error(`session ${raw.id} has no date`);
+  // EventPilot's subsession order is unreliable (frequently rotated); sort by
+  // start time, items without one last. Array.sort is stable, so ties keep
+  // the scraped order.
+  const NO_TIME = "￿";
   return {
     ...trimPresentation(raw),
     ...prune({ category: raw.category, session_number: raw.session_number }),
     date: raw.date,
-    presentations: (raw.presentations ?? []).map(trimPresentation),
+    presentations: (raw.presentations ?? [])
+      .map(trimPresentation)
+      .sort((a, b) =>
+        (a.starts_at ?? NO_TIME).localeCompare(b.starts_at ?? NO_TIME),
+      ),
   };
 }
 
