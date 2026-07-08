@@ -1,3 +1,7 @@
+# pnpm 11.9.0's pre-run deps-status check crashes intermittently (internal
+# minimumReleaseAge policy bug); it's a nicety, not correctness — off.
+verifyDepsBeforeRun: false
+
 # pnpm's script-blocking security model: only these deps may run build
 # scripts (they install platform binaries; everything else is blocked).
 allowBuilds:
