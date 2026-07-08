@@ -4,6 +4,14 @@ This workspace contains a small scraper for the AAIC 2026 EventPilot web planner
 It dumps the conference program into local JSON and CSV for planning outside the
 official app.
 
+## Conference App
+
+The dump feeds an internal conference app for the team, live at
+[aaic2026.kozak.ch](https://aaic2026.kozak.ch) (Cloudflare Worker, gated by
+Cloudflare Access). The app lives in `app/`; `app/scripts/build-program.ts`
+turns `data/aaic_2026/{sessions,people}.json` into the static program asset it
+serves. See `ROADMAP.md` for architecture and `CLAUDE.md` for commands.
+
 ## Current Result
 
 The latest completed dump is in `data/aaic_2026/`:
@@ -242,6 +250,8 @@ They are not required for normal use. The important files are:
 - `tests/test_data_integrity.py`
 - `README.md`
 - `STATUS.md`
+- `CLAUDE.md` and `ROADMAP.md` (project practices and app architecture)
+- `app/` (the conference app served at aaic2026.kozak.ch)
 - `data/aaic_2026/sessions.json`
 - `data/aaic_2026/people.json` if fetched with `--people`
 - `data/aaic_2026/sessions.csv`

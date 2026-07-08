@@ -16,17 +16,21 @@ nested `presentations`-on-parent shape and drops the relational hints
 - Hono for Worker routing (tiny, typed, mature).
 - Access control: **Cloudflare Access** in front of `aaic2026.kozak.ch` with an
   email allowlist. The Worker trusts the `Cf-Access-Authenticated-User-Email`
-  header (validates the Access JWT) — that email _is_ the user identity.
-  Zero auth UI.
+  header — safe because the Access-protected custom domain is the only ingress
+  (workers.dev and preview URLs are disabled; Access strips inbound `Cf-Access-*`
+  headers). No JWT validation in the Worker; revisit if another ingress ever
+  appears. That email _is_ the user identity. Zero auth UI.
 
 ### Program data: static JSON asset, not D1
 
 The full trimmed program (all sessions, presentations, descriptions, people
-names) is ~1.6 MB gzipped. So:
+names) is ~1.7 MB gzipped. So:
 
 - A build script (`app/scripts/build-program.ts`) transforms
   `data/aaic_2026/sessions.json` + `people.json` into a versioned static asset
-  (`program.<hash>.json`) served with immutable cache headers.
+  (`program.<hash>.json`) served with immutable cache headers. It sorts
+  presentations by start time (EventPilot's order is unreliable) and ships
+  descriptions as sanitized HTML (bare b/br/sup/sub/i/em/strong/p only).
 - The client fetches it once, caches it; all browsing/search is client-side
   and instant — and works on terrible venue WiFi.
 - **No D1 at all** (original plan was SQLite→D1; dropped because the Worker can
@@ -71,7 +75,12 @@ app/
 
 Status 2026-07-08: M1–M3 shipped and live at aaic2026.kozak.ch, correctness
 review pass applied (notes reactivity, CSV title join + BOM, back-nav,
-reconnect backoff). M4 remains open.
+reconnect backoff). Two polish rounds shipped on top: a Posters tab (posters
+out of the daily program, board-number search), honest search-result kinds
+with talk-level deep links (`#/s/<session>/<talk>`), sorted talks, HTML
+descriptions, unique-previous back stack with scroll restoration, persistent
+search queries, two-tap note deletion, and a day-view search bar. The Zero
+Trust org label was renamed to "kozak.ch". M4 remains open.
 
 ### M1 — Walking skeleton (get the pipeline proven early)
 
@@ -79,8 +88,8 @@ reconnect backoff). M4 remains open.
 - `build-program.ts` producing the trimmed program asset.
 - Worker serving the SPA + program asset.
 - Deploy to `aaic2026.kozak.ch` (DNS + Worker route + Cloudflare Access
-  policy). **Needs Mateusz: Cloudflare auth (MCP or `wrangler login`) and the
-  Access email allowlist.**
+  policy). Allowlist currently: mateusz.kozak@acimmune.com; add the rest of
+  the team before the conference.
 
 ### M2 — Browse & find
 
@@ -91,7 +100,7 @@ reconnect backoff). M4 remains open.
 
 ### M3 — Notes (the point of the whole thing)
 
-- NotebookDO with SQLite schema: `notes(id, item_id, author_email, body,
+- NotebookDO with SQLite schema: `notes(id, item_id, author, body,
 created_at, updated_at)`.
 - Notes attach to sessions _or_ presentations; visible to everyone; editable
   by their author.
@@ -112,6 +121,7 @@ created_at, updated_at)`.
 ## Deliberately not doing
 
 - Live re-scraping from the app (scraper stays a manual, periodic process).
-- Author/affiliation parsing beyond what's in `description_text`.
+- Author/affiliation parsing beyond the formatted `description_html` block.
 - Accounts, roles, permissions beyond Access + author-owns-their-notes.
+- Access JWT validation in the Worker (single Access-only ingress instead).
 - Any framework churn after M1.

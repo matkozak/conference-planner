@@ -113,6 +113,28 @@ Other modeling choices to settle:
   a dedicated board field.
 - Whether to derive plenary presentation rows from plenary description text.
 
+## Downstream Consumer: the Conference App
+
+`app/scripts/build-program.ts` (see `ROADMAP.md`) builds the app's static
+program asset from `sessions.json` + `people.json`. It reads: `id`, `date`,
+`starts_at`, `ends_at`, `title`, `location`, `category`, `session_number`,
+`speaker_ids`, `description_html`, `description_text`, `presentations`.
+Renaming or restructuring these fields requires touching the app build too.
+
+Source-data quirks found while building the app (upstream EventPilot data,
+deliberately not fixed in the dump):
+
+- Embedded `presentations` order is unreliable: in 127 of 360 sessions it is
+  rotated (last talk listed first). The app sorts by `starts_at` downstream;
+  the dump preserves EventPilot's raw order.
+- Poster board assignment: 5,743 poster presentations have
+  `location = "Board no. <Day>-<number>"`, 120 have the generic
+  `"Exhibit Hall"` (no board assigned upstream), and 19 have the literal
+  `"Board no. #N/A"` — an Excel error value that leaked into EventPilot.
+- `description_html` across the whole dump contains only `<sup>`, `<b>`,
+  `<br>`, and a dozen `<p>` tags; the app sanitizes to a bare-tag allowlist
+  at build time anyway.
+
 ## Operational Notes
 
 - The scraper requires a fresh logged-in `Cookie:` header as `AAIC_COOKIE` or

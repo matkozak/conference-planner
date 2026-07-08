@@ -32,10 +32,12 @@ python3 -m unittest tests.test_data_integrity   # verify the dump
 App side (Node LTS via mise, run from `app/`):
 
 ```bash
+npm run program  # rebuild the program asset from ../data/aaic_2026/
 npm run check    # typecheck (svelte-check + tsc) — run before declaring done
 npm run test     # vitest
-npm run dev      # wrangler dev
-npm run deploy   # wrangler deploy
+npm run dev      # vite dev (Worker runs in workerd via @cloudflare/vite-plugin)
+npm run deploy   # build + wrangler deploy (uses the dist output config)
+npm run types    # regenerate worker-configuration.d.ts after wrangler.jsonc changes
 ```
 
 ## Practices
