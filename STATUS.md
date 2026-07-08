@@ -3,7 +3,8 @@
 ## What Exists
 
 - `scripts/scrape_aaic.py`: standard-library scraper for the AAIC 2026 EventPilot planner.
-- `scripts/export_presentations_by_date.py`: derived daily planning CSV exporter.
+- `scripts/export_presentations_by_date.py`: derived daily planning CSV exporter,
+  including parent session category for downstream filtering.
 - `scripts/export_sqlite.py`: normalized SQLite exporter for the JSON dump.
 - `tests/test_data_integrity.py`: JSON/SQLite consistency tests for the committed dump.
 - `data/aaic_2026/sessions.json`: full current structured dump.
@@ -31,6 +32,8 @@ Current integrity checks pass:
 - Parent `subsession_ids` exactly match embedded presentation ids.
 - Embedded presentation `parent_id` values match their containing parent
   session.
+- Embedded presentation `category` and `category_id` values match their
+  containing parent session.
 - SQLite row counts and foreign keys match the JSON source.
 
 ## Current Shape
