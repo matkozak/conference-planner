@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { gotoDay, gotoMe, gotoPosters, gotoSearch, init, savedScroll, ui } from './store.svelte';
+  import { goBack, gotoDay, gotoMe, gotoPosters, gotoSearch, init, isPosterSession, savedScroll, sessionsById, ui } from './store.svelte';
   import { connectNotebook } from './notebook.svelte';
   import { dayTab } from './format';
   import DayView from './DayView.svelte';
@@ -10,6 +10,22 @@
   import SearchView from './SearchView.svelte';
 
   void init().then(() => connectNotebook());
+
+  // The session being viewed (if any) — its day tab lights up for orientation.
+  const viewedSession = $derived(
+    ui.route?.view === 'session' ? sessionsById.get(ui.route.id) : undefined,
+  );
+  const activeDay = $derived(
+    ui.route?.view === 'day'
+      ? ui.route.day
+      : viewedSession && !isPosterSession(viewedSession)
+        ? viewedSession.date
+        : undefined,
+  );
+  const postersActive = $derived(
+    ui.route?.view === 'posters' ||
+      (viewedSession !== undefined && isPosterSession(viewedSession)),
+  );
 
   // After each route change: restore the scroll position for revisited pages
   // (browser back, "up" navigation) and keep the active tab in view.
@@ -28,27 +44,32 @@
   <main class="center"><p>{ui.error}</p></main>
 {:else if !ui.program || !ui.route}
   <main class="center"><p>Loading the program…</p></main>
-{:else if ui.route.view === 'day' || ui.route.view === 'posters' || ui.route.view === 'me'}
+{:else if ui.route.view === 'search'}
+  <SearchView />
+{:else}
   <header class="topbar">
+    {#if ui.route.view === 'session'}
+      <button class="back" onclick={goBack} aria-label="Back">←</button>
+    {/if}
     <nav class="days">
       {#each ui.program.days as day (day)}
         <button
           class="day-tab"
-          class:active={ui.route.view === 'day' && ui.route.day === day}
+          class:active={activeDay === day}
           onclick={() => gotoDay(day)}
         >
           {dayTab(day)}
         </button>
       {/each}
       <button
-        class="day-tab posters-tab"
-        class:active={ui.route.view === 'posters'}
+        class="day-tab section-start"
+        class:active={postersActive}
         onclick={gotoPosters}
       >
         Posters
       </button>
       <button
-        class="day-tab posters-tab"
+        class="day-tab"
         class:active={ui.route.view === 'me'}
         onclick={gotoMe}
       >
@@ -66,11 +87,9 @@
     <DayView day={ui.route.day} />
   {:else if ui.route.view === 'posters'}
     <PostersView />
-  {:else}
+  {:else if ui.route.view === 'me'}
     <MyStuffView />
+  {:else}
+    <SessionDetail id={ui.route.id} talk={ui.route.talk} />
   {/if}
-{:else if ui.route.view === 'session'}
-  <SessionDetail id={ui.route.id} talk={ui.route.talk} />
-{:else}
-  <SearchView />
 {/if}

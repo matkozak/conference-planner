@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goBack, isPosterSession, sessionsById, speakerNames } from './store.svelte';
+  import { isPosterSession, sessionsById, speakerNames } from './store.svelte';
   import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from './format';
   import NoteList from './NoteList.svelte';
   import RsvpBar from './RsvpBar.svelte';
@@ -22,13 +22,9 @@
   });
 </script>
 
-<header class="topbar">
-  <button class="back" onclick={goBack} aria-label="Back">←</button>
-  <h1 class="bar-title">{session ? displayTitle(session) : 'Session not found'}</h1>
-</header>
-
 {#if session}
   <main class="detail">
+    <h1 class="detail-title">{displayTitle(session)}</h1>
     <p class="when">
       {dayLabel(session.date)} · {timeRange(session.starts_at, session.ends_at)}
       {#if session.location}&nbsp;· {session.location}{/if}
@@ -79,4 +75,6 @@
 
     <NoteList itemId={session.id} />
   </main>
+{:else}
+  <main class="center"><p>Session not found.</p></main>
 {/if}
