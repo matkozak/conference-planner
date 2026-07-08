@@ -3,7 +3,9 @@
   import { dayLabel, posterTopic, timeRange } from './format';
   import SearchResults from './SearchResults.svelte';
 
-  const results = $derived(search(searchState.posters, 60, 'posters'));
+  const results = $derived(
+    search(searchState.posters, { limit: 60, scope: 'posters' }),
+  );
 
   // Computed once at mount; the program (and these maps) never change.
   const posterCount = [...posterSessionsByDay.values()]
@@ -20,7 +22,11 @@
   />
 
   {#if searchState.posters.trim().length >= 2}
-    <SearchResults {results} emptyText="No matching posters." />
+    <SearchResults
+      entries={results.entries}
+      exactCount={results.exactCount}
+      emptyText="No matching posters."
+    />
   {:else}
     {#each [...posterSessionsByDay] as [day, sessions] (day)}
       <h2 class="timeslot">{dayLabel(day)}</h2>

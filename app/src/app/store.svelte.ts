@@ -14,6 +14,7 @@ export type Route =
   | { view: "day"; day: string }
   | { view: "session"; id: string; talk?: string }
   | { view: "posters" }
+  | { view: "search" }
   | { view: "me" };
 
 export const ui = $state({
@@ -22,8 +23,16 @@ export const ui = $state({
   error: "",
 });
 
-/** Search inputs live here (not in components) so browser/app back keeps them. */
-export const searchState = $state({ query: "", posters: "" });
+/**
+ * Search inputs live here (not in components) so browser/app back keeps them.
+ * `query` is shared between day views and the Search tab: typing on a day and
+ * then opening Search carries the query over (the "widen" gesture).
+ */
+export const searchState = $state({
+  query: "",
+  posters: "",
+  inAbstracts: false,
+});
 
 // --- Immutable program indexes (filled once by init) ---
 
@@ -84,6 +93,7 @@ function parseHash(): Route {
     return { view: "session", id: parts[1], talk: parts[2] };
   }
   if (parts[0] === "posters") return { view: "posters" };
+  if (parts[0] === "search") return { view: "search" };
   if (parts[0] === "me") return { view: "me" };
   if (parts[0] === "day" && parts[1] && sessionsByDay.has(parts[1])) {
     return { view: "day", day: parts[1] };
@@ -102,6 +112,10 @@ export function gotoSession(id: string, talk?: string): void {
 
 export function gotoPosters(): void {
   location.hash = "#/posters";
+}
+
+export function gotoSearch(): void {
+  location.hash = "#/search";
 }
 
 export function gotoMe(): void {
@@ -202,7 +216,9 @@ export function entryKind(entry: SearchEntry): EntryKind {
 
 const haystack: string[] = [];
 const searchEntries: SearchEntry[] = [];
-const uf = new UFuzzy({ intraMode: 1 });
+// Two-pass ranking: exact substring matches always beat typo-tolerant ones.
+const ufExact = new UFuzzy();
+const ufFuzzy = new UFuzzy({ intraMode: 1 });
 
 function buildIndexes(program: Program): void {
   const byStart = (a: Session, b: Session) =>
@@ -223,14 +239,19 @@ function buildIndexes(program: Program): void {
     if (list.length === 0) posterSessionsByDay.delete(day);
   }
 
-  const names = (ids?: string[]) =>
+  // Primary-speaker names AND their organizations: "Roche" should find the
+  // talks Roche people are giving, not rely on typo-luck against titles.
+  const people = (ids?: string[]) =>
     (ids ?? [])
-      .map((id) => program.people[id]?.name)
+      .flatMap((id) => {
+        const p = program.people[id];
+        return p ? [p.name, p.org] : [];
+      })
       .filter(Boolean)
       .join(" ");
   for (const s of sessionsById.values()) {
     haystack.push(
-      [displayTitle(s), s.category, s.location, names(s.speaker_ids)]
+      [displayTitle(s), s.category, s.location, people(s.speaker_ids)]
         .filter(Boolean)
         .join(" | "),
     );
@@ -238,7 +259,9 @@ function buildIndexes(program: Program): void {
     itemsById.set(s.id, { session: s });
     for (const t of s.presentations) {
       haystack.push(
-        [t.title, t.location, names(t.speaker_ids)].filter(Boolean).join(" | "),
+        [t.title, t.location, people(t.speaker_ids)]
+          .filter(Boolean)
+          .join(" | "),
       );
       searchEntries.push({ session: s, talk: t });
       itemsById.set(t.id, { session: s, talk: t });
@@ -246,34 +269,69 @@ function buildIndexes(program: Program): void {
   }
 }
 
-/**
- * Fuzzy search, uFuzzy-ranked (the 10_000 infoThresh exceeds the haystack
- * size, so ranking always runs). With `preferDay`, matches on that day rise
- * above the rest, keeping rank order within each group.
- */
-export function search(
-  query: string,
-  limit = 40,
-  scope: "all" | "posters" = "all",
-  preferDay?: string,
-): SearchEntry[] {
-  const q = query.trim();
-  if (q.length < 2) return [];
-  const [idxs, info, order] = uf.search(haystack, q, 1, 10_000);
+/** haystack + tag-stripped abstracts; built on first use of the toggle. */
+let abstractHaystack: string[] | null = null;
+
+function ensureAbstractHaystack(): string[] {
+  abstractHaystack ??= searchEntries.map((e, i) => {
+    const text = (e.talk ?? e.session).description ?? "";
+    return `${haystack[i]} | ${text.replace(/<[^>]+>/g, " ")}`;
+  });
+  return abstractHaystack;
+}
+
+export interface SearchOptions {
+  limit?: number;
+  /** "posters" keeps only poster presentations. */
+  scope?: "all" | "posters";
+  /** Restrict to one conference day (day-view scoped search). */
+  day?: string;
+  /** Also match against abstract text (Search tab toggle). */
+  abstracts?: boolean;
+}
+
+export interface RankedResults {
+  entries: SearchEntry[];
+  /** entries[0..exactCount) matched exactly; the rest are typo-tolerant. */
+  exactCount: number;
+}
+
+function rankedIndexes(uf: UFuzzy, hs: string[], q: string): number[] {
+  // infoThresh 10_000 exceeds the haystack size, so ranking always runs.
+  const [idxs, info, order] = uf.search(hs, q, 1, 10_000);
   if (!idxs?.length) return [];
-  const ranked = order && info ? order.map((i) => info.idx[i] ?? 0) : [...idxs];
-  const out: SearchEntry[] = [];
-  for (const i of ranked) {
-    const entry = searchEntries[i];
-    if (!entry) continue;
-    if (scope === "posters" && entryKind(entry) !== "poster") continue;
-    out.push(entry);
-    if (out.length >= limit * 2) break; // headroom for the preferDay partition
-  }
-  if (preferDay) {
-    const here = out.filter((e) => e.session.date === preferDay);
-    const elsewhere = out.filter((e) => e.session.date !== preferDay);
-    return [...here, ...elsewhere].slice(0, limit);
-  }
-  return out.slice(0, limit);
+  return order && info ? order.map((i) => info.idx[i] ?? 0) : [...idxs];
+}
+
+/**
+ * Two-pass search: exact substring matches first (uFuzzy-ranked), then —
+ * only if there is room left — typo-tolerant matches as clearly-second-tier
+ * backfill. `exactCount` lets the UI draw the line between the tiers.
+ */
+export function search(query: string, opts: SearchOptions = {}): RankedResults {
+  const { limit = 40, scope = "all", day, abstracts = false } = opts;
+  const q = query.trim();
+  if (q.length < 2) return { entries: [], exactCount: 0 };
+  const hs = abstracts ? ensureAbstractHaystack() : haystack;
+
+  const keep = (e: SearchEntry) =>
+    (scope !== "posters" || entryKind(e) === "poster") &&
+    (day === undefined || e.session.date === day);
+
+  const entries: SearchEntry[] = [];
+  const seen = new Set<number>();
+  const collect = (ranked: number[]) => {
+    for (const i of ranked) {
+      if (entries.length >= limit) return;
+      if (seen.has(i)) continue;
+      seen.add(i);
+      const entry = searchEntries[i];
+      if (entry && keep(entry)) entries.push(entry);
+    }
+  };
+
+  collect(rankedIndexes(ufExact, hs, q));
+  const exactCount = entries.length;
+  if (entries.length < limit) collect(rankedIndexes(ufFuzzy, hs, q));
+  return { entries, exactCount };
 }

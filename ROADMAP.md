@@ -80,10 +80,13 @@ out of the daily program, board-number search), honest search-result kinds
 with talk-level deep links (`#/s/<session>/<talk>`), sorted talks, HTML
 descriptions, unique-previous back stack with scroll restoration, persistent
 search queries, two-tap note deletion, and a day-view search bar. Search was
-later unified: the separate search view and magnifier are gone; every day view
-carries an inline global search (matches on the viewed day sort first), the
-Posters tab keeps its poster-scoped filter, and one universal sticky topbar
-(back arrow + tabs in session detail) navigates everything. The Zero
+then settled as scoped-plus-global: each day view filters that day only, the
+Posters tab filters posters, and a Search tab covers everything (sharing the
+day views' query, with an opt-in "also search abstracts" toggle). Ranking is
+two-pass — exact substring matches always precede typo-tolerant ones, with a
+visible "close matches" divider — and primary-speaker organizations are
+indexed, so company names ("Roche") hit their talks. One universal sticky
+topbar (back arrow + tabs in session detail) navigates everything. The Zero
 Trust org label was renamed to "kozak.ch". From M4, RSVPs and the "My stuff"
 view are built; tags were dropped and offline polish deferred (the immutable
 program asset already covers most of it).

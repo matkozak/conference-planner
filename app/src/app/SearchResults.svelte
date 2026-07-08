@@ -3,7 +3,11 @@
   import { entryKind, gotoSession } from './store.svelte';
   import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from './format';
 
-  let { results, emptyText = 'No matches.' }: { results: SearchEntry[]; emptyText?: string } = $props();
+  let {
+    entries,
+    exactCount = Infinity,
+    emptyText = 'No matches.',
+  }: { entries: SearchEntry[]; exactCount?: number; emptyText?: string } = $props();
 
   const KIND_LABEL = {
     session: 'Session',
@@ -13,8 +17,13 @@
   } as const;
 </script>
 
-{#each results as result (result.talk?.id ?? result.session.id)}
+{#each entries as result, i (result.talk?.id ?? result.session.id)}
   {@const kind = entryKind(result)}
+  {#if i === exactCount}
+    <p class="fuzzy-divider">
+      {exactCount === 0 ? 'No exact matches — close matches:' : 'Close matches:'}
+    </p>
+  {/if}
   <button class="result" onclick={() => gotoSession(result.session.id, result.talk?.id)}>
     <div class="title">
       {result.talk ? result.talk.title : displayTitle(result.session)}
@@ -39,3 +48,12 @@
 {:else}
   <p class="empty">{emptyText}</p>
 {/each}
+
+<style>
+  .fuzzy-divider {
+    font-size: 0.8125rem;
+    font-style: italic;
+    color: var(--muted);
+    margin: 0.75rem 0 0.375rem;
+  }
+</style>

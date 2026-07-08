@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Session } from '../shared/types';
   import { search, searchState, sessionsByDay } from './store.svelte';
-  import { hhmm } from './format';
+  import { dayTab, hhmm } from './format';
   import SessionCard from './SessionCard.svelte';
   import SearchResults from './SearchResults.svelte';
 
@@ -20,9 +20,11 @@
   });
 
   const searching = $derived(searchState.query.trim().length >= 2);
-  /** Global results, but matches on the viewed day surface first. */
+  /** Scoped to this day only; the Search tab is the global corpus. */
   const results = $derived(
-    searching ? search(searchState.query, 40, 'all', day) : [],
+    searching
+      ? search(searchState.query, { day })
+      : { entries: [], exactCount: 0 },
   );
 </script>
 
@@ -30,11 +32,15 @@
   <input
     class="search-input posters-search"
     type="search"
-    placeholder="Search talks, posters, speakers, rooms…"
+    placeholder="Search {dayTab(day)} only…"
     bind:value={searchState.query}
   />
   {#if searching}
-    <SearchResults {results} />
+    <SearchResults
+      entries={results.entries}
+      exactCount={results.exactCount}
+      emptyText="No matches on {dayTab(day)} — try the Search tab for all days."
+    />
   {:else}
     {#each groups as group (group.time)}
       <section>

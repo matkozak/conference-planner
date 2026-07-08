@@ -1,11 +1,12 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { goBack, gotoDay, gotoMe, gotoPosters, init, isPosterSession, savedScroll, sessionsById, ui } from './store.svelte';
+  import { goBack, gotoDay, gotoMe, gotoPosters, gotoSearch, init, isPosterSession, savedScroll, sessionsById, ui } from './store.svelte';
   import { connectNotebook } from './notebook.svelte';
   import { dayTab } from './format';
   import DayView from './DayView.svelte';
   import MyStuffView from './MyStuffView.svelte';
   import PostersView from './PostersView.svelte';
+  import SearchView from './SearchView.svelte';
   import SessionDetail from './SessionDetail.svelte';
 
   void init().then(() => connectNotebook());
@@ -72,6 +73,13 @@
       </button>
       <button
         class="day-tab"
+        class:active={ui.route.view === 'search'}
+        onclick={gotoSearch}
+      >
+        Search
+      </button>
+      <button
+        class="day-tab"
         class:active={ui.route.view === 'me'}
         onclick={gotoMe}
       >
@@ -83,6 +91,8 @@
     <DayView day={ui.route.day} />
   {:else if ui.route.view === 'posters'}
     <PostersView />
+  {:else if ui.route.view === 'search'}
+    <SearchView />
   {:else if ui.route.view === 'me'}
     <MyStuffView />
   {:else}
