@@ -1,6 +1,7 @@
 <script lang="ts">
   import { gotoSession, posterSessionsByDay, search, searchState } from './store.svelte';
   import { dayLabel, posterTopic, timeRange } from './format';
+  import SearchBox from './SearchBox.svelte';
   import SearchResults from './SearchResults.svelte';
 
   const results = $derived(
@@ -14,11 +15,9 @@
 </script>
 
 <main>
-  <input
-    class="search-input posters-search"
-    type="search"
-    placeholder="Search {posterCount.toLocaleString('en')} posters…"
+  <SearchBox
     bind:value={searchState.posters}
+    placeholder="Search {posterCount.toLocaleString('en')} posters…"
   />
 
   {#if searchState.posters.trim().length >= 2}

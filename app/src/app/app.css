@@ -264,12 +264,6 @@ main {
 
 /* --- Search --- */
 
-.posters-search {
-  display: block;
-  width: 100%;
-  margin-bottom: 0.75rem;
-}
-
 .search-input {
   flex: 1;
   padding: 0.5rem 0.75rem;
@@ -279,6 +273,12 @@ main {
   color: var(--text);
   font: inherit;
   outline-color: var(--accent);
+}
+
+/* We draw our own clear button; hide the native WebKit one. */
+.search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  display: none;
 }
 
 .result {

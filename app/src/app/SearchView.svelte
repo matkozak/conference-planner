@@ -1,5 +1,6 @@
 <script lang="ts">
   import { search, searchState } from './store.svelte';
+  import SearchBox from './SearchBox.svelte';
   import SearchResults from './SearchResults.svelte';
 
   const results = $derived(
@@ -8,19 +9,13 @@
       abstracts: searchState.inAbstracts,
     }),
   );
-
-  function focus(node: HTMLElement): void {
-    node.focus();
-  }
 </script>
 
 <main>
-  <input
-    class="search-input posters-search"
-    type="search"
-    placeholder="Search everything — all days, talks, posters, people…"
+  <SearchBox
     bind:value={searchState.query}
-    use:focus
+    placeholder="Search everything — all days, talks, posters, people…"
+    focusOnMount
   />
   <label class="abstracts-toggle">
     <input type="checkbox" bind:checked={searchState.inAbstracts} />

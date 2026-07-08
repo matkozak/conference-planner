@@ -2,6 +2,7 @@
   import type { Session } from '../shared/types';
   import { search, searchState, sessionsByDay } from './store.svelte';
   import { dayTab, hhmm } from './format';
+  import SearchBox from './SearchBox.svelte';
   import SessionCard from './SessionCard.svelte';
   import SearchResults from './SearchResults.svelte';
 
@@ -29,12 +30,7 @@
 </script>
 
 <main>
-  <input
-    class="search-input posters-search"
-    type="search"
-    placeholder="Search {dayTab(day)} only…"
-    bind:value={searchState.query}
-  />
+  <SearchBox bind:value={searchState.query} placeholder="Search {dayTab(day)} only…" />
   {#if searching}
     <SearchResults
       entries={results.entries}
