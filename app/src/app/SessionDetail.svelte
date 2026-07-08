@@ -2,6 +2,7 @@
   import { goBack, isPosterSession, sessionsById, speakerNames } from './store.svelte';
   import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from './format';
   import NoteList from './NoteList.svelte';
+  import RsvpBar from './RsvpBar.svelte';
 
   let { id, talk }: { id: string; talk?: string } = $props();
 
@@ -39,6 +40,7 @@
     {#if speakerNames(session).length}
       <p class="speakers">{speakerNames(session).join(' · ')}</p>
     {/if}
+    <RsvpBar itemId={session.id} />
     {#if session.description}
       <p class="desc">{@html session.description}</p>
     {/if}
@@ -68,6 +70,7 @@
             {#if item.description}
               <p class="desc">{@html item.description}</p>
             {/if}
+            <RsvpBar itemId={item.id} />
             <NoteList itemId={item.id} />
           {/if}
         </details>

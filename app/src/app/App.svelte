@@ -1,9 +1,10 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { gotoDay, gotoPosters, gotoSearch, init, savedScroll, ui } from './store.svelte';
+  import { gotoDay, gotoMe, gotoPosters, gotoSearch, init, savedScroll, ui } from './store.svelte';
   import { connectNotebook } from './notebook.svelte';
   import { dayTab } from './format';
   import DayView from './DayView.svelte';
+  import MyStuffView from './MyStuffView.svelte';
   import PostersView from './PostersView.svelte';
   import SessionDetail from './SessionDetail.svelte';
   import SearchView from './SearchView.svelte';
@@ -27,7 +28,7 @@
   <main class="center"><p>{ui.error}</p></main>
 {:else if !ui.program || !ui.route}
   <main class="center"><p>Loading the program…</p></main>
-{:else if ui.route.view === 'day' || ui.route.view === 'posters'}
+{:else if ui.route.view === 'day' || ui.route.view === 'posters' || ui.route.view === 'me'}
   <header class="topbar">
     <nav class="days">
       {#each ui.program.days as day (day)}
@@ -46,6 +47,13 @@
       >
         Posters
       </button>
+      <button
+        class="day-tab posters-tab"
+        class:active={ui.route.view === 'me'}
+        onclick={gotoMe}
+      >
+        Me
+      </button>
     </nav>
     <button class="icon-btn" onclick={gotoSearch} aria-label="Search">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -56,8 +64,10 @@
   </header>
   {#if ui.route.view === 'day'}
     <DayView day={ui.route.day} />
-  {:else}
+  {:else if ui.route.view === 'posters'}
     <PostersView />
+  {:else}
+    <MyStuffView />
   {/if}
 {:else if ui.route.view === 'session'}
   <SessionDetail id={ui.route.id} talk={ui.route.talk} />

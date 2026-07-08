@@ -80,7 +80,9 @@ out of the daily program, board-number search), honest search-result kinds
 with talk-level deep links (`#/s/<session>/<talk>`), sorted talks, HTML
 descriptions, unique-previous back stack with scroll restoration, persistent
 search queries, two-tap note deletion, and a day-view search bar. The Zero
-Trust org label was renamed to "kozak.ch". M4 remains open.
+Trust org label was renamed to "kozak.ch". From M4, RSVPs and the "My stuff"
+view are built; tags were dropped and offline polish deferred (the immutable
+program asset already covers most of it).
 
 ### M1 — Walking skeleton (get the pipeline proven early)
 
@@ -110,13 +112,15 @@ created_at, updated_at)`.
 
 ### M4 — Bonus (only if the day allows)
 
-- "I'll be there" RSVP per session/talk, with faces/initials visible to all.
-- Controlled-vocabulary tags (abeta mabs, ARIA, tau, neuroinflammation,
-  a-syn, …) on sessions/talks.
-- Offline polish: cache the program in a service worker / localStorage.
-- "My stuff" view: all of the user's own notes (and later RSVPs/tags) in one
-  place, with jump-to-item links — requested for deleting/reviewing one's own
-  contributions.
+- ✅ "I'll be there" RSVP per session/talk: toggle + initials chips on the
+  detail view, aggregated team initials (session ∪ its talks) on day cards.
+  `rsvps(item_id, author)` table in the NotebookDO, idempotent `rsvp:set`
+  toggle message, included in the WS snapshot.
+- ✅ "My stuff" view (`#/me`, "Me" tab): my RSVP schedule grouped by day and
+  my notes, with jump-to-item links.
+- ✂️ Controlled-vocabulary tags — dropped (2026-07-08).
+- ✂️ Offline polish — deferred; the immutable-cached program asset covers
+  the browsing case already.
 
 ## Deliberately not doing
 

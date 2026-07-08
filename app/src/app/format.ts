@@ -54,6 +54,14 @@ export function posterTopic(s: Session): string {
   return displayTitle(s).replace(/^\[[^\]]*\]\s*/, "");
 }
 
+/** "mateusz.kozak@x.com" → "MK"; single-word local parts use two letters. */
+export function initials(email: string): string {
+  const local = email.split("@")[0] ?? email;
+  const parts = local.split(/[._-]+/).filter(Boolean);
+  const two = (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "");
+  return (parts.length >= 2 ? two : local.slice(0, 2)).toUpperCase();
+}
+
 /** Many titles repeat their category ("Plenary - Opening…"); strip the echo. */
 export function displayTitle(s: Session): string {
   const prefix = `${s.category} - `;

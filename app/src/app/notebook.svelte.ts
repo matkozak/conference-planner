@@ -11,6 +11,9 @@ export const notes = $state({
   connected: false,
 });
 
+/** item_id → sorted author emails who said "I'll be there". */
+export const rsvps = new SvelteMap<string, string[]>();
+
 /** Current user email — refreshed from /api/health on every (re)connect. */
 export const currentUser = $state({ email: "" });
 
@@ -23,6 +26,22 @@ export function notesFor(itemId: string): Note[] {
   return [...notes.byId.values()]
     .filter((n) => n.item_id === itemId)
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
+}
+
+export function rsvpAuthors(itemId: string): string[] {
+  return rsvps.get(itemId) ?? [];
+}
+
+export function myRsvp(itemId: string): boolean {
+  return rsvpAuthors(itemId).includes(currentUser.email);
+}
+
+/** Apply one rsvp change locally (fresh array — SvelteMap tracks by key). */
+function applyRsvp(itemId: string, author: string, going: boolean): void {
+  const authors = (rsvps.get(itemId) ?? []).filter((a) => a !== author);
+  if (going) authors.push(author);
+  if (authors.length > 0) rsvps.set(itemId, authors.sort());
+  else rsvps.delete(itemId);
 }
 
 export function connectNotebook(): void {
@@ -64,12 +83,17 @@ function openSocket(): void {
       case "snapshot":
         notes.byId.clear();
         for (const n of msg.notes) notes.byId.set(n.id, n);
+        rsvps.clear();
+        for (const r of msg.rsvps) applyRsvp(r.item_id, r.author, true);
         break;
       case "note:upserted":
         notes.byId.set(msg.note.id, msg.note);
         break;
       case "note:deleted":
         notes.byId.delete(msg.id);
+        break;
+      case "rsvp:set":
+        applyRsvp(msg.item_id, msg.author, msg.going);
         break;
       case "error":
         console.warn("Notebook error:", msg.message);
@@ -109,4 +133,8 @@ export function updateNote(id: number, body: string): void {
 
 export function deleteNote(id: number): void {
   send({ type: "note:delete", id });
+}
+
+export function setRsvp(itemId: string, going: boolean): void {
+  send({ type: "rsvp:set", item_id: itemId, going });
 }

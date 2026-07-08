@@ -12,6 +12,11 @@ type NoteRow = Record<string, SqlStorageValue> & {
   updated_at: string;
 };
 
+type RsvpRow = Record<string, SqlStorageValue> & {
+  item_id: string;
+  author: string;
+};
+
 /**
  * The team's shared notebook. One instance ("team") holds every note from
  * every user. SQLite for storage, WebSocket hibernation for live sync.
@@ -36,6 +41,14 @@ export class NotebookDO extends DurableObject<Env> {
       ctx.storage.sql.exec(`
         CREATE INDEX IF NOT EXISTS idx_notes_item ON notes(item_id)
       `);
+      ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS rsvps (
+          item_id    TEXT NOT NULL,
+          author     TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+          PRIMARY KEY (item_id, author)
+        )
+      `);
     });
   }
 
@@ -44,6 +57,12 @@ export class NotebookDO extends DurableObject<Env> {
   async getAllNotes(): Promise<NoteRow[]> {
     return this.ctx.storage.sql
       .exec<NoteRow>("SELECT * FROM notes ORDER BY created_at")
+      .toArray();
+  }
+
+  async getAllRsvps(): Promise<RsvpRow[]> {
+    return this.ctx.storage.sql
+      .exec<RsvpRow>("SELECT item_id, author FROM rsvps ORDER BY created_at")
       .toArray();
   }
 
@@ -61,7 +80,8 @@ export class NotebookDO extends DurableObject<Env> {
 
     // Send current snapshot
     const notes = await this.getAllNotes();
-    const msg: ServerMsg = { type: "snapshot", notes };
+    const rsvps = await this.getAllRsvps();
+    const msg: ServerMsg = { type: "snapshot", notes, rsvps };
     server.send(JSON.stringify(msg));
 
     return new Response(null, { status: 101, webSocket: client });
@@ -93,6 +113,9 @@ export class NotebookDO extends DurableObject<Env> {
         break;
       case "note:delete":
         this.handleDelete(parsed.id, author);
+        break;
+      case "rsvp:set":
+        this.handleRsvpSet(parsed.item_id, parsed.going, author);
         break;
       default:
         this.sendTo(ws, { type: "error", message: "Unknown message type" });
@@ -153,6 +176,24 @@ export class NotebookDO extends DurableObject<Env> {
       .toArray();
     if (deleted.length > 0) {
       this.broadcast({ type: "note:deleted", id });
+    }
+  }
+
+  /** Idempotent toggle; broadcasts only when the state actually changed. */
+  private handleRsvpSet(item_id: string, going: boolean, author: string): void {
+    if (!item_id) return;
+    const changed = this.ctx.storage.sql
+      .exec(
+        going
+          ? `INSERT INTO rsvps (item_id, author) VALUES (?, ?)
+             ON CONFLICT DO NOTHING RETURNING item_id`
+          : "DELETE FROM rsvps WHERE item_id = ? AND author = ? RETURNING item_id",
+        item_id,
+        author,
+      )
+      .toArray();
+    if (changed.length > 0) {
+      this.broadcast({ type: "rsvp:set", item_id, author, going });
     }
   }
 

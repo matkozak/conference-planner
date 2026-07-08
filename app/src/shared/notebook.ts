@@ -9,17 +9,25 @@ export interface Note {
   updated_at: string;
 }
 
+/** One "I'll be there" mark. Keyed by (item_id, author) — no id needed. */
+export interface Rsvp {
+  item_id: string;
+  author: string;
+}
+
 // --- Client → server messages ---
 
 export type ClientMsg =
   | { type: "note:create"; item_id: string; body: string }
   | { type: "note:update"; id: number; body: string }
-  | { type: "note:delete"; id: number };
+  | { type: "note:delete"; id: number }
+  | { type: "rsvp:set"; item_id: string; going: boolean };
 
 // --- Server → client messages ---
 
 export type ServerMsg =
-  | { type: "snapshot"; notes: Note[] }
+  | { type: "snapshot"; notes: Note[]; rsvps: Rsvp[] }
   | { type: "note:upserted"; note: Note }
   | { type: "note:deleted"; id: number }
+  | { type: "rsvp:set"; item_id: string; author: string; going: boolean }
   | { type: "error"; message: string };

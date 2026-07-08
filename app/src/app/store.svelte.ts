@@ -14,7 +14,8 @@ export type Route =
   | { view: "day"; day: string }
   | { view: "session"; id: string; talk?: string }
   | { view: "posters" }
-  | { view: "search" };
+  | { view: "search" }
+  | { view: "me" };
 
 export const ui = $state({
   program: null as Program | null,
@@ -28,6 +29,8 @@ export const searchState = $state({ query: "", posters: "" });
 // --- Immutable program indexes (filled once by init) ---
 
 export const sessionsById = new Map<string, Session>();
+/** Any item id (session or talk) → the entry that resolves it. */
+export const itemsById = new Map<string, SearchEntry>();
 /** Non-poster sessions per day: the daily program. */
 export const sessionsByDay = new Map<string, Session[]>();
 /** Poster sessions per day: shown in the Posters tab. */
@@ -83,6 +86,7 @@ function parseHash(): Route {
   }
   if (parts[0] === "posters") return { view: "posters" };
   if (parts[0] === "search") return { view: "search" };
+  if (parts[0] === "me") return { view: "me" };
   if (parts[0] === "day" && parts[1] && sessionsByDay.has(parts[1])) {
     return { view: "day", day: parts[1] };
   }
@@ -104,6 +108,10 @@ export function gotoPosters(): void {
 
 export function gotoSearch(): void {
   location.hash = "#/search";
+}
+
+export function gotoMe(): void {
+  location.hash = "#/me";
 }
 
 export function gotoHome(): void {
@@ -233,11 +241,13 @@ function buildIndexes(program: Program): void {
         .join(" | "),
     );
     searchEntries.push({ session: s });
+    itemsById.set(s.id, { session: s });
     for (const t of s.presentations) {
       haystack.push(
         [t.title, t.location, names(t.speaker_ids)].filter(Boolean).join(" | "),
       );
       searchEntries.push({ session: s, talk: t });
+      itemsById.set(t.id, { session: s, talk: t });
     }
   }
 }
