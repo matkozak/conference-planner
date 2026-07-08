@@ -199,6 +199,16 @@ export function speakerNames(item: Presentation): string[] {
   });
 }
 
+/** "Name, Org" per primary speaker (talk detail); name alone if no org. */
+export function speakerLines(item: Presentation): string[] {
+  const people = ui.program?.people ?? {};
+  return (item.speaker_ids ?? []).flatMap((id) => {
+    const p = people[id];
+    if (!p) return [];
+    return [p.org ? `${p.name}, ${p.org}` : p.name];
+  });
+}
+
 // --- Fuzzy search over sessions, talks, and posters ---
 
 export type EntryKind = "session" | "posters" | "talk" | "poster";

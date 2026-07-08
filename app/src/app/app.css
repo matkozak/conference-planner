@@ -71,10 +71,23 @@ button {
 
 .day-tab {
   flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
   padding: 0.375rem 0.75rem;
   border-radius: 999px;
   color: var(--muted);
   white-space: nowrap;
+}
+
+/* Invisible bold ghost of the label: the tab is always as wide as its bold
+   self, so activating (font-weight 600) never shifts the row. */
+.day-tab::after {
+  content: attr(data-label);
+  font-weight: 600;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
 }
 
 .day-tab.active {
@@ -103,7 +116,7 @@ button {
 .day-tab.section-start::before {
   content: "";
   position: absolute;
-  left: -0.4375rem;
+  left: -7px; /* whole device pixels: no subpixel "sometimes thicker" line */
   top: 15%;
   bottom: 15%;
   width: 1px;

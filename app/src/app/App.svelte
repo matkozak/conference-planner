@@ -59,6 +59,7 @@
         <button
           class="day-tab"
           class:active={activeDay === day}
+          data-label={dayTab(day)}
           onclick={() => gotoDay(day)}
         >
           {dayTab(day)}
@@ -67,6 +68,7 @@
       <button
         class="day-tab section-start"
         class:active={postersActive}
+        data-label="Posters"
         onclick={gotoPosters}
       >
         Posters
@@ -74,6 +76,7 @@
       <button
         class="day-tab"
         class:active={ui.route.view === 'search'}
+        data-label="Search"
         onclick={gotoSearch}
       >
         Search
@@ -81,6 +84,7 @@
       <button
         class="day-tab"
         class:active={ui.route.view === 'me'}
+        data-label="Me"
         onclick={gotoMe}
       >
         Me

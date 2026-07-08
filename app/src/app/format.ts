@@ -39,6 +39,21 @@ export function dayTab(date: string): string {
   });
 }
 
+/** Note timestamp: "2026-07-08T13:32:05Z" → "8 Jul 14:32" (local time). */
+export function noteStamp(iso: string, withTime = true): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-GB", {
+    month: "short",
+    day: "numeric",
+  });
+  if (!withTime) return date;
+  const time = d.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${date} ${time}`;
+}
+
 /** "Board no. Sunday-0149" → "Sunday-0149"; other locations unchanged. */
 export function boardNo(location?: string): string {
   return location?.startsWith("Board no. ")

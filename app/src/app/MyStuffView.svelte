@@ -2,7 +2,7 @@
   import type { SearchEntry } from './store.svelte';
   import { gotoSession, itemsById } from './store.svelte';
   import { currentUser, notes, rsvps } from './notebook.svelte';
-  import { dayLabel, displayTitle, hhmm } from './format';
+  import { boardNo, dayLabel, displayTitle, hhmm, noteStamp } from './format';
 
   interface PlanItem {
     entry: SearchEntry;
@@ -56,12 +56,16 @@
   {#each [...myDays] as [day, items] (day)}
     <h3>{dayLabel(day)}</h3>
     {#each items as { entry, startsAt } (entry.talk?.id ?? entry.session.id)}
+      {@const loc = entry.talk?.location ?? entry.session.location}
       <button class="row" onclick={() => open(entry)}>
         <span class="time">{hhmm(startsAt) || '·'}</span>
         <span class="what">
           {itemTitle(entry)}
           {#if entry.talk}
             <span class="in">in {displayTitle(entry.session)}</span>
+          {/if}
+          {#if loc}
+            <span class="loc">📍 {boardNo(loc)}</span>
           {/if}
         </span>
       </button>
@@ -81,7 +85,7 @@
         {/if}
         <span class="body">{note.body}</span>
       </span>
-      <span class="time">{note.created_at.slice(5, 10)}</span>
+      <span class="time">{noteStamp(note.created_at, false)}</span>
     </button>
   {/each}
 </main>
@@ -142,6 +146,12 @@
   .in {
     font-size: 0.8125rem;
     color: var(--muted);
+  }
+
+  .loc {
+    font-size: 0.8125rem;
+    color: var(--accent);
+    font-weight: 600;
   }
 
   .note-row .body {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isPosterSession, sessionsById, speakerNames } from './store.svelte';
+  import { isPosterSession, sessionsById, speakerLines, speakerNames } from './store.svelte';
   import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from './format';
   import NoteList from './NoteList.svelte';
   import RsvpBar from './RsvpBar.svelte';
@@ -60,8 +60,8 @@
             {#if !poster && item.location && item.location !== session.location}
               <p class="meta">{item.location}</p>
             {/if}
-            {#if speakerNames(item).length}
-              <p class="speakers">{speakerNames(item).join(' · ')}</p>
+            {#if speakerLines(item).length}
+              <p class="speakers">{speakerLines(item).join(' · ')}</p>
             {/if}
             {#if item.description}
               <p class="desc">{@html item.description}</p>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createNote, currentUser, deleteNote, notes, notesFor, updateNote } from './notebook.svelte';
+  import { noteStamp } from './format';
 
   let { itemId }: { itemId: string } = $props();
 
@@ -76,7 +77,7 @@
       {:else}
         <div class="note-meta">
           <span class="note-author">{shortName(note.author)}</span>
-          <span class="note-time">{note.created_at.slice(5, 16).replace('T', ' ')}</span>
+          <span class="note-time">{noteStamp(note.created_at)}</span>
         </div>
         <p class="note-body">{note.body}</p>
         {#if note.author === currentUser.email}
