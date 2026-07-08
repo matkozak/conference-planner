@@ -2,7 +2,7 @@
   "name": "aaic2026",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.10.0",
   "scripts": {
     "program": "node scripts/build-program.ts",
     "dev": "vite dev",
