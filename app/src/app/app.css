@@ -27,6 +27,12 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Reserve the scrollbar gutter: short and long pages get identical
+     layout width, so nothing shifts when the scrollbar (dis)appears. */
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -72,28 +78,43 @@ button {
 .day-tab {
   flex-shrink: 0;
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
+  gap: 0.375rem;
   padding: 0.375rem 0.75rem;
   border-radius: 999px;
   color: var(--muted);
   white-space: nowrap;
+  font-weight: 500;
 }
 
-/* Invisible bold ghost of the label: the tab is always as wide as its bold
-   self, so activating (font-weight 600) never shifts the row. */
-.day-tab::after {
-  content: attr(data-label);
-  font-weight: 600;
-  height: 0;
-  overflow: hidden;
-  visibility: hidden;
-}
-
+/* Active changes colors only — never metrics — so pills cannot shift. */
 .day-tab.active {
   background: var(--accent);
   color: var(--surface);
-  font-weight: 600;
+}
+
+.tab-icon {
+  display: none;
+}
+
+/* Compact topbar: day numbers + section icons; fits a 360px screen. */
+@media (max-width: 620px) {
+  .tab-wd,
+  .tab-text {
+    display: none;
+  }
+
+  .tab-icon {
+    display: block;
+  }
+
+  .days {
+    gap: 0.25rem;
+  }
+
+  .day-tab {
+    padding: 0.375rem 0.5625rem;
+  }
 }
 
 .back {

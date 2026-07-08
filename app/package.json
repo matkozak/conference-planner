@@ -2,14 +2,15 @@
   "name": "aaic2026",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
     "program": "node scripts/build-program.ts",
     "dev": "vite dev",
-    "build": "npm run program && vite build",
+    "build": "pnpm run program && vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.worker.json --noEmit",
     "test": "vitest run",
     "types": "wrangler types",
-    "deploy": "npm run build && wrangler deploy -c dist/aaic2026/wrangler.json"
+    "deploy": "pnpm run build && wrangler deploy -c dist/aaic2026/wrangler.json"
   },
   "dependencies": {
     "@leeoniya/ufuzzy": "^1.0.19",

@@ -56,38 +56,53 @@
     >←</button>
     <nav class="days">
       {#each ui.program.days as day (day)}
+        {@const [wd, num] = dayTab(day).split(' ')}
         <button
           class="day-tab"
           class:active={activeDay === day}
-          data-label={dayTab(day)}
+          aria-label={dayTab(day)}
           onclick={() => gotoDay(day)}
         >
-          {dayTab(day)}
+          <span class="tab-wd">{wd}</span>{num}
         </button>
       {/each}
       <button
         class="day-tab section-start"
         class:active={postersActive}
-        data-label="Posters"
+        aria-label="Posters"
         onclick={gotoPosters}
       >
-        Posters
+        <svg class="tab-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+        <span class="tab-text">Posters</span>
       </button>
       <button
         class="day-tab"
         class:active={ui.route.view === 'search'}
-        data-label="Search"
+        aria-label="Search"
         onclick={gotoSearch}
       >
-        Search
+        <svg class="tab-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="11" cy="11" r="7" />
+          <line x1="16.5" y1="16.5" x2="21" y2="21" />
+        </svg>
+        <span class="tab-text">Search</span>
       </button>
       <button
         class="day-tab"
         class:active={ui.route.view === 'me'}
-        data-label="Me"
+        aria-label="My stuff"
         onclick={gotoMe}
       >
-        Me
+        <svg class="tab-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21c0-4.5 3.5-7 8-7s8 2.5 8 7" />
+        </svg>
+        <span class="tab-text">Me</span>
       </button>
     </nav>
   </header>

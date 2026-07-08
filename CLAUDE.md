@@ -29,15 +29,17 @@ Data side (Python 3, `.venv` exists but stdlib suffices):
 python3 -m unittest tests.test_data_integrity   # verify the dump
 ```
 
-App side (Node LTS via mise, run from `app/`):
+App side (Node LTS + pnpm via mise, run from `app/`; pnpm only — the
+lockfile is `pnpm-lock.yaml`, dependency build scripts are allowlisted in
+`package.json` `allowScripts`):
 
 ```bash
-npm run program  # rebuild the program asset from ../data/aaic_2026/
-npm run check    # typecheck (svelte-check + tsc) — run before declaring done
-npm run test     # vitest
-npm run dev      # vite dev (Worker runs in workerd via @cloudflare/vite-plugin)
-npm run deploy   # build + wrangler deploy (uses the dist output config)
-npm run types    # regenerate worker-configuration.d.ts after wrangler.jsonc changes
+pnpm run program  # rebuild the program asset from ../data/aaic_2026/
+pnpm run check    # typecheck (svelte-check + tsc) — run before declaring done
+pnpm run test     # vitest
+pnpm run dev      # vite dev (Worker runs in workerd via @cloudflare/vite-plugin)
+pnpm run deploy   # build + wrangler deploy (uses the dist output config)
+pnpm run types    # regenerate worker-configuration.d.ts after wrangler.jsonc changes
 ```
 
 ## Practices
