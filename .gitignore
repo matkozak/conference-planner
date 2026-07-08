@@ -19,3 +19,13 @@ autocomplete_*.txt
 
 # Small validation runs
 aaic_sample/
+
+# App (app/)
+node_modules/
+dist/
+.wrangler/
+.dev.vars*
+app/public/program.*.json
+app/public/_headers
+app/src/shared/generated/
+app/worker-configuration.d.ts

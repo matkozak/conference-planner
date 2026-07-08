@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "aaic2026",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-07-08",
+  // The Access-protected custom domain is the only way in: no workers.dev,
+  // no preview URLs (they would bypass Cloudflare Access).
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "aaic2026.kozak.ch", "custom_domain": true }],
+  "assets": {
+    // `directory` is intentionally absent: the Cloudflare Vite plugin points it
+    // at the client build output automatically.
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": {
+    "enabled": true
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "NOTEBOOK", "class_name": "NotebookDO" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["NotebookDO"] }
+  ]
+}

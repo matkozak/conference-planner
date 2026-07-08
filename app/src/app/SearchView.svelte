@@ -1,0 +1,51 @@
+<script lang="ts">
+  import { goBack, gotoSession, search } from './store.svelte';
+  import { dayLabel, displayTitle, hhmm, timeRange } from './format';
+
+  let query = $state('');
+
+  const results = $derived(search(query));
+
+  function focus(node: HTMLElement): void {
+    node.focus();
+  }
+</script>
+
+<header class="topbar">
+  <button class="back" onclick={goBack} aria-label="Back">←</button>
+  <input
+    class="search-input"
+    type="search"
+    placeholder="Talks, sessions, speakers, rooms…"
+    bind:value={query}
+    use:focus
+  />
+</header>
+
+<main>
+  {#each results as result (result.talk?.id ?? result.session.id)}
+    <button class="result" onclick={() => gotoSession(result.session.id)}>
+      <div class="title">
+        {result.talk ? result.talk.title : displayTitle(result.session)}
+      </div>
+      <div class="meta">
+        <span class="kind">{result.talk ? 'Talk' : 'Session'}</span>
+        <span>{dayLabel(result.session.date)}</span>
+        <span class="time">
+          {result.talk
+            ? hhmm(result.talk.starts_at)
+            : timeRange(result.session.starts_at, result.session.ends_at)}
+        </span>
+        {#if result.talk?.location ?? result.session.location}
+          <span>{result.talk?.location ?? result.session.location}</span>
+        {/if}
+      </div>
+    </button>
+  {:else}
+    {#if query.trim().length >= 2}
+      <p class="empty">No matches.</p>
+    {:else}
+      <p class="empty">Type at least two characters.</p>
+    {/if}
+  {/each}
+</main>
