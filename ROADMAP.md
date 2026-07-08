@@ -79,7 +79,11 @@ reconnect backoff). Two polish rounds shipped on top: a Posters tab (posters
 out of the daily program, board-number search), honest search-result kinds
 with talk-level deep links (`#/s/<session>/<talk>`), sorted talks, HTML
 descriptions, unique-previous back stack with scroll restoration, persistent
-search queries, two-tap note deletion, and a day-view search bar. The Zero
+search queries, two-tap note deletion, and a day-view search bar. Search was
+later unified: the separate search view and magnifier are gone; every day view
+carries an inline global search (matches on the viewed day sort first), the
+Posters tab keeps its poster-scoped filter, and one universal sticky topbar
+(back arrow + tabs in session detail) navigates everything. The Zero
 Trust org label was renamed to "kozak.ch". From M4, RSVPs and the "My stuff"
 view are built; tags were dropped and offline polish deferred (the immutable
 program asset already covers most of it).

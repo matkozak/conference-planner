@@ -1,8 +1,9 @@
 <script lang="ts">
   import type { Session } from '../shared/types';
-  import { gotoSearch, sessionsByDay } from './store.svelte';
+  import { search, searchState, sessionsByDay } from './store.svelte';
   import { hhmm } from './format';
   import SessionCard from './SessionCard.svelte';
+  import SearchResults from './SearchResults.svelte';
 
   let { day }: { day: string } = $props();
 
@@ -17,25 +18,33 @@
     }
     return out;
   });
+
+  const searching = $derived(searchState.query.trim().length >= 2);
+  /** Global results, but matches on the viewed day surface first. */
+  const results = $derived(
+    searching ? search(searchState.query, 40, 'all', day) : [],
+  );
 </script>
 
 <main>
-  <!-- A decoy: focusing routes to the real search view, which autofocuses. -->
   <input
     class="search-input posters-search"
     type="search"
     placeholder="Search talks, posters, speakers, rooms…"
-    readonly
-    onfocus={gotoSearch}
+    bind:value={searchState.query}
   />
-  {#each groups as group (group.time)}
-    <section>
-      <h2 class="timeslot">{group.time}</h2>
-      {#each group.sessions as session (session.id)}
-        <SessionCard {session} />
-      {/each}
-    </section>
+  {#if searching}
+    <SearchResults {results} />
   {:else}
-    <p class="empty">No sessions on this day.</p>
-  {/each}
+    {#each groups as group (group.time)}
+      <section>
+        <h2 class="timeslot">{group.time}</h2>
+        {#each group.sessions as session (session.id)}
+          <SessionCard {session} />
+        {/each}
+      </section>
+    {:else}
+      <p class="empty">No sessions on this day.</p>
+    {/each}
+  {/if}
 </main>

@@ -14,7 +14,6 @@ export type Route =
   | { view: "day"; day: string }
   | { view: "session"; id: string; talk?: string }
   | { view: "posters" }
-  | { view: "search" }
   | { view: "me" };
 
 export const ui = $state({
@@ -85,7 +84,6 @@ function parseHash(): Route {
     return { view: "session", id: parts[1], talk: parts[2] };
   }
   if (parts[0] === "posters") return { view: "posters" };
-  if (parts[0] === "search") return { view: "search" };
   if (parts[0] === "me") return { view: "me" };
   if (parts[0] === "day" && parts[1] && sessionsByDay.has(parts[1])) {
     return { view: "day", day: parts[1] };
@@ -104,10 +102,6 @@ export function gotoSession(id: string, talk?: string): void {
 
 export function gotoPosters(): void {
   location.hash = "#/posters";
-}
-
-export function gotoSearch(): void {
-  location.hash = "#/search";
 }
 
 export function gotoMe(): void {
@@ -252,14 +246,20 @@ function buildIndexes(program: Program): void {
   }
 }
 
+/**
+ * Fuzzy search, uFuzzy-ranked (the 10_000 infoThresh exceeds the haystack
+ * size, so ranking always runs). With `preferDay`, matches on that day rise
+ * above the rest, keeping rank order within each group.
+ */
 export function search(
   query: string,
   limit = 40,
   scope: "all" | "posters" = "all",
+  preferDay?: string,
 ): SearchEntry[] {
   const q = query.trim();
   if (q.length < 2) return [];
-  const [idxs, info, order] = uf.search(haystack, q, 1, 1000);
+  const [idxs, info, order] = uf.search(haystack, q, 1, 10_000);
   if (!idxs?.length) return [];
   const ranked = order && info ? order.map((i) => info.idx[i] ?? 0) : [...idxs];
   const out: SearchEntry[] = [];
@@ -268,7 +268,12 @@ export function search(
     if (!entry) continue;
     if (scope === "posters" && entryKind(entry) !== "poster") continue;
     out.push(entry);
-    if (out.length >= limit) break;
+    if (out.length >= limit * 2) break; // headroom for the preferDay partition
   }
-  return out;
+  if (preferDay) {
+    const here = out.filter((e) => e.session.date === preferDay);
+    const elsewhere = out.filter((e) => e.session.date !== preferDay);
+    return [...here, ...elsewhere].slice(0, limit);
+  }
+  return out.slice(0, limit);
 }
