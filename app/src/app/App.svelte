@@ -45,9 +45,14 @@
   <main class="center"><p>Loading the program…</p></main>
 {:else}
   <header class="topbar">
-    {#if ui.route.view === 'session'}
-      <button class="back" onclick={goBack} aria-label="Back">←</button>
-    {/if}
+    <!-- Always occupies its slot so the tabs never shift when it appears. -->
+    <button
+      class="back"
+      class:ghost={ui.route.view !== 'session'}
+      disabled={ui.route.view !== 'session'}
+      onclick={goBack}
+      aria-label="Back"
+    >←</button>
     <nav class="days">
       {#each ui.program.days as day (day)}
         <button

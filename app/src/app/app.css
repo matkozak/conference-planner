@@ -90,6 +90,10 @@ button {
   color: var(--accent);
 }
 
+.back.ghost {
+  visibility: hidden;
+}
+
 /* Divider between the day group and the Posters/Me section tabs. */
 .day-tab.section-start {
   position: relative;
