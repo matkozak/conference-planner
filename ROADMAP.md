@@ -74,9 +74,10 @@ app/
 ## Milestones
 
 Status 2026-07-08 (end of build day): **M1–M4 shipped** and live at
-aaic2026.kozak.ch. Remaining before the conference: extend the Access
-allowlist to the whole team. A few aesthetic nits are parked for a future
-session.
+aaic2026.kozak.ch. Access is settled: one app, one reusable policy
+("AC Immune" — the `@acimmune.com` domain plus two external addresses);
+remaining is only telling the team the app exists. A few aesthetic nits are
+parked for a future session.
 
 Key decisions and features layered on top of the original milestones:
 
@@ -109,8 +110,9 @@ Key decisions and features layered on top of the original milestones:
 - `build-program.ts` producing the trimmed program asset.
 - Worker serving the SPA + program asset.
 - Deploy to `aaic2026.kozak.ch` (DNS + Worker route + Cloudflare Access
-  policy). Allowlist currently: mateusz.kozak@acimmune.com; add the rest of
-  the team before the conference.
+  policy). Access policy (final): allow `@acimmune.com` +
+  kozak.mateusz@gmail.com + andrea_pfeifer@bluewin.ch, email OTP only,
+  168h sessions.
 
 ### M2 — Browse & find
 
