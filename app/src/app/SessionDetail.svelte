@@ -6,6 +6,7 @@
     speakerNames,
   } from "./store.svelte";
   import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from "./format";
+  import { tz } from "./tz.svelte";
   import NoteList from "./NoteList.svelte";
   import RsvpBar from "./RsvpBar.svelte";
 
@@ -33,7 +34,11 @@
   <main class="detail">
     <h1 class="detail-title">{displayTitle(session)}</h1>
     <p class="when">
-      {dayLabel(session.date)} · {timeRange(session.starts_at, session.ends_at)}
+      {dayLabel(session.date)} · {timeRange(
+        session.starts_at,
+        session.ends_at,
+        tz.zone,
+      )}
       {#if session.location}&nbsp;· {session.location}{/if}
     </p>
     <p class="meta">
@@ -59,7 +64,9 @@
         >
           <summary>
             <span class="time">
-              {(poster ? boardNo(item.location) : hhmm(item.starts_at)) || "·"}
+              {(poster
+                ? boardNo(item.location)
+                : hhmm(item.starts_at, tz.zone)) || "·"}
             </span>
             <span>{item.title}</span>
           </summary>

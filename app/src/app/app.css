@@ -97,7 +97,7 @@ button {
   display: none;
 }
 
-/* Compact topbar: day numbers + section icons; fits a 360px screen.
+/* Compact topbar: day numbers + section icons.
    The back arrow (swipe covers it) and the Search tab (day search links
    to it) are dropped entirely — focus on today. */
 @media (max-width: 620px) {
@@ -121,6 +121,18 @@ button {
 
   .day-tab {
     padding: 0.375rem 0.5625rem;
+  }
+}
+
+/* Narrow phones (iPhone mini & co): tighten until all 7 day pills + 3
+   section icons fit one row at 375px — no hidden tabs to discover. */
+@media (max-width: 400px) {
+  .days {
+    gap: 0.125rem;
+  }
+
+  .day-tab {
+    padding: 0.375rem;
   }
 }
 

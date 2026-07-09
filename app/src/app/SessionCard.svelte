@@ -3,6 +3,7 @@
   import { gotoSession, isPosterSession } from "./store.svelte";
   import { rsvpAuthors } from "./notebook.svelte";
   import { displayTitle, initials, timeRange } from "./format";
+  import { tz } from "./tz.svelte";
 
   let { session }: { session: Session } = $props();
 
@@ -18,7 +19,9 @@
 
 <button class="card" onclick={() => gotoSession(session.id)}>
   <div class="meta">
-    <span class="time">{timeRange(session.starts_at, session.ends_at)}</span>
+    <span class="time"
+      >{timeRange(session.starts_at, session.ends_at, tz.zone)}</span
+    >
     {#if session.location}<span>{session.location}</span>{/if}
   </div>
   <div class="title">{displayTitle(session)}</div>

@@ -6,6 +6,7 @@
     gotoMe,
     gotoPosters,
     gotoSearch,
+    gotoTeam,
     init,
     isPosterSession,
     savedScroll,
@@ -19,6 +20,7 @@
   import PostersView from "./PostersView.svelte";
   import SearchView from "./SearchView.svelte";
   import SessionDetail from "./SessionDetail.svelte";
+  import TeamView from "./TeamView.svelte";
 
   void init().then(() => connectNotebook());
 
@@ -139,6 +141,28 @@
         </svg>
         <span class="tab-text">Me</span>
       </button>
+      <button
+        class="day-tab"
+        class:active={ui.route.view === "team"}
+        aria-label="Team plans"
+        onclick={gotoTeam}
+      >
+        <svg
+          class="tab-icon"
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="9" cy="8" r="3.5" />
+          <path d="M2.5 20c0-4 3-6 6.5-6s6.5 2 6.5 6" />
+          <circle cx="17.5" cy="9.5" r="2.75" />
+          <path d="M18.5 14.8c2 .6 3.2 2.2 3.2 4.7" />
+        </svg>
+        <span class="tab-text">Team</span>
+      </button>
     </nav>
   </header>
   {#if ui.route.view === "day"}
@@ -147,6 +171,8 @@
     <PostersView />
   {:else if ui.route.view === "search"}
     <SearchView />
+  {:else if ui.route.view === "team"}
+    <TeamView />
   {:else if ui.route.view === "me"}
     <MyStuffView />
   {:else}

@@ -2,6 +2,7 @@
   import type { SearchEntry } from "./store.svelte";
   import { entryKind, gotoSession } from "./store.svelte";
   import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from "./format";
+  import { tz } from "./tz.svelte";
 
   let {
     entries,
@@ -46,8 +47,12 @@
       {:else}
         <span class="time">
           {result.talk
-            ? hhmm(result.talk.starts_at)
-            : timeRange(result.session.starts_at, result.session.ends_at)}
+            ? hhmm(result.talk.starts_at, tz.zone)
+            : timeRange(
+                result.session.starts_at,
+                result.session.ends_at,
+                tz.zone,
+              )}
         </span>
         {#if result.talk?.location ?? result.session.location}
           <span>{result.talk?.location ?? result.session.location}</span>

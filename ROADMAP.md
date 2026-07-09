@@ -140,6 +140,17 @@ created_at, updated_at)`.
 - ✅ "My stuff" view (`#/me`, "Me" tab): my RSVP schedule grouped by day
   (times + rooms/boards) and my notes — editable/deletable in place, with
   jump-to-item links.
+- ✅ Timezone toggle (2026-07-09): venue (BST) vs Zurich (CEST) display.
+  The "All times BST (venue) · switch to CEST" caption on list views IS the
+  toggle — no prefs page. Cosmetic and per-device, so it's localStorage
+  (`aaic:tz`), not the DO. Program times carry the venue offset, so London
+  stays a string slice and Zurich is one cached `Intl.DateTimeFormat`; no
+  session ends past mid-afternoon, so days never shift.
+- ✅ Team view (2026-07-09, `#/team`, "Team" tab): everyone's RSVPs grouped
+  by day with attendee initials (own chip filled) — the Me schedule pointed
+  at the whole notebook via a shared PlanRow component. Read-only over
+  existing RSVP data; deliberately no share/opt-out pref — RSVPs are already
+  public in-app, and it's a team tool for the team.
 - ✂️ Controlled-vocabulary tags — dropped (2026-07-08).
 - ✂️ Offline polish — deferred; the immutable-cached program asset covers
   the browsing case already.

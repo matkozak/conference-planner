@@ -15,6 +15,7 @@ export type Route =
   | { view: "session"; id: string; talk?: string }
   | { view: "posters" }
   | { view: "search" }
+  | { view: "team" }
   | { view: "me" };
 
 export const ui = $state({
@@ -94,6 +95,7 @@ function parseHash(): Route {
   }
   if (parts[0] === "posters") return { view: "posters" };
   if (parts[0] === "search") return { view: "search" };
+  if (parts[0] === "team") return { view: "team" };
   if (parts[0] === "me") return { view: "me" };
   if (parts[0] === "day" && parts[1] && sessionsByDay.has(parts[1])) {
     return { view: "day", day: parts[1] };
@@ -116,6 +118,10 @@ export function gotoPosters(): void {
 
 export function gotoSearch(): void {
   location.hash = "#/search";
+}
+
+export function gotoTeam(): void {
+  location.hash = "#/team";
 }
 
 export function gotoMe(): void {

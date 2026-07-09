@@ -2,8 +2,10 @@
   import type { SearchEntry } from "./store.svelte";
   import { gotoSession, itemsById } from "./store.svelte";
   import { currentUser, notes, rsvps } from "./notebook.svelte";
-  import { boardNo, dayLabel, displayTitle, hhmm } from "./format";
+  import { dayLabel, displayTitle } from "./format";
   import NoteCard from "./NoteCard.svelte";
+  import PlanRow from "./PlanRow.svelte";
+  import TzNote from "./TzNote.svelte";
 
   interface PlanItem {
     entry: SearchEntry;
@@ -47,6 +49,7 @@
 </script>
 
 <main class="me">
+  <TzNote />
   <h2>My schedule</h2>
   {#if myDays.size === 0}
     <p class="empty">
@@ -57,19 +60,7 @@
   {#each [...myDays] as [day, items] (day)}
     <h3>{dayLabel(day)}</h3>
     {#each items as { entry, startsAt } (entry.talk?.id ?? entry.session.id)}
-      {@const loc = entry.talk?.location ?? entry.session.location}
-      <button class="row" onclick={() => open(entry)}>
-        <span class="time">{hhmm(startsAt) || "·"}</span>
-        <span class="what">
-          {itemTitle(entry)}
-          {#if entry.talk}
-            <span class="in">in {displayTitle(entry.session)}</span>
-          {/if}
-          {#if loc}
-            <span class="loc">📍 {boardNo(loc)}</span>
-          {/if}
-        </span>
-      </button>
+      <PlanRow {entry} {startsAt} />
     {/each}
   {/each}
 
@@ -110,48 +101,6 @@
   .empty {
     color: var(--muted);
     font-size: 0.9375rem;
-  }
-
-  .row {
-    display: flex;
-    gap: 0.625rem;
-    width: 100%;
-    text-align: left;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.375rem;
-    cursor: pointer;
-    font: inherit;
-    color: var(--text);
-  }
-
-  .time {
-    flex-shrink: 0;
-    font-variant-numeric: tabular-nums;
-    color: var(--muted);
-    font-size: 0.875rem;
-    padding-top: 0.0625rem;
-  }
-
-  .what {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-    font-size: 0.9375rem;
-    min-width: 0;
-  }
-
-  .in {
-    font-size: 0.8125rem;
-    color: var(--muted);
-  }
-
-  .loc {
-    font-size: 0.8125rem;
-    color: var(--accent);
-    font-weight: 600;
   }
 
   .note-block {

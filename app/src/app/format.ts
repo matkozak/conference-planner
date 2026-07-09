@@ -1,16 +1,41 @@
 import type { Session } from "../shared/types";
 
+/** Display timezone: venue time (London) or home time (Zurich). */
+export type Zone = "london" | "zurich";
+
+/** The conference runs in July 2026, so both zones are firmly in DST. */
+export const ZONE_LABEL: Record<Zone, string> = {
+  london: "BST",
+  zurich: "CEST",
+};
+
+const zurichTime = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Zurich",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
 /**
  * Times in the program are ISO strings with the venue's UTC offset, so the
- * wall-clock part of the string IS venue-local time — no Date math needed.
+ * wall-clock part of the string IS venue-local time — no Date math needed
+ * unless the user asked for Zurich time. (No session ends past mid-afternoon
+ * venue time, so the +1h shift can never move an item to another day.)
  */
-export function hhmm(iso?: string): string {
-  return iso?.slice(11, 16) ?? "";
+export function hhmm(iso?: string, zone: Zone = "london"): string {
+  if (!iso) return "";
+  return zone === "london"
+    ? iso.slice(11, 16)
+    : zurichTime.format(new Date(iso));
 }
 
-export function timeRange(start?: string, end?: string): string {
-  const a = hhmm(start);
-  const b = hhmm(end);
+export function timeRange(
+  start?: string,
+  end?: string,
+  zone: Zone = "london",
+): string {
+  const a = hhmm(start, zone);
+  const b = hhmm(end, zone);
   return a && b ? `${a}–${b}` : a || b;
 }
 
