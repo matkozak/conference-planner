@@ -9,6 +9,8 @@
     "build": "pnpm run program && vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.worker.json --noEmit",
     "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "types": "wrangler types",
     "deploy": "pnpm run build && wrangler deploy -c dist/aaic2026/wrangler.json"
   },
@@ -21,6 +23,8 @@
     "@cloudflare/workers-types": "^5.20260708.1",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@types/node": "^26.1.1",
+    "prettier": "^3.9.4",
+    "prettier-plugin-svelte": "^4.1.1",
     "svelte": "^5.56.4",
     "svelte-check": "^4.7.2",
     "typescript": "^6.0.3",

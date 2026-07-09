@@ -1,19 +1,23 @@
 <script lang="ts">
-  import type { SearchEntry } from './store.svelte';
-  import { entryKind, gotoSession } from './store.svelte';
-  import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from './format';
+  import type { SearchEntry } from "./store.svelte";
+  import { entryKind, gotoSession } from "./store.svelte";
+  import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from "./format";
 
   let {
     entries,
     exactCount = Infinity,
-    emptyText = 'No matches.',
-  }: { entries: SearchEntry[]; exactCount?: number; emptyText?: string } = $props();
+    emptyText = "No matches.",
+  }: {
+    entries: SearchEntry[];
+    exactCount?: number;
+    emptyText?: string;
+  } = $props();
 
   const KIND_LABEL = {
-    session: 'Session',
-    posters: 'Posters',
-    talk: 'Talk',
-    poster: 'Poster',
+    session: "Session",
+    posters: "Posters",
+    talk: "Talk",
+    poster: "Poster",
   } as const;
 </script>
 
@@ -21,18 +25,24 @@
   {@const kind = entryKind(result)}
   {#if i === exactCount}
     <p class="fuzzy-divider">
-      {exactCount === 0 ? 'No exact matches — close matches:' : 'Close matches:'}
+      {exactCount === 0
+        ? "No exact matches — close matches:"
+        : "Close matches:"}
     </p>
   {/if}
-  <button class="result" onclick={() => gotoSession(result.session.id, result.talk?.id)}>
+  <button
+    class="result"
+    onclick={() => gotoSession(result.session.id, result.talk?.id)}
+  >
     <div class="title">
       {result.talk ? result.talk.title : displayTitle(result.session)}
     </div>
     <div class="meta">
       <span class="kind">{KIND_LABEL[kind]}</span>
       <span>{dayLabel(result.session.date)}</span>
-      {#if kind === 'poster'}
-        {#if result.talk?.location}<span>{boardNo(result.talk.location)}</span>{/if}
+      {#if kind === "poster"}
+        {#if result.talk?.location}<span>{boardNo(result.talk.location)}</span
+          >{/if}
       {:else}
         <span class="time">
           {result.talk

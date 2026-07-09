@@ -13,17 +13,13 @@
     // at the client build output automatically.
     "not_found_handling": "single-page-application",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*"],
   },
   "observability": {
-    "enabled": true
+    "enabled": true,
   },
   "durable_objects": {
-    "bindings": [
-      { "name": "NOTEBOOK", "class_name": "NotebookDO" }
-    ]
+    "bindings": [{ "name": "NOTEBOOK", "class_name": "NotebookDO" }],
   },
-  "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["NotebookDO"] }
-  ]
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["NotebookDO"] }],
 }

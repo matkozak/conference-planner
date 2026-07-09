@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { Session } from '../shared/types';
-  import { gotoSession, isPosterSession } from './store.svelte';
-  import { rsvpAuthors } from './notebook.svelte';
-  import { displayTitle, initials, timeRange } from './format';
+  import type { Session } from "../shared/types";
+  import { gotoSession, isPosterSession } from "./store.svelte";
+  import { rsvpAuthors } from "./notebook.svelte";
+  import { displayTitle, initials, timeRange } from "./format";
 
   let { session }: { session: Session } = $props();
 
@@ -27,7 +27,7 @@
     {#if session.presentations.length}
       <span>
         {session.presentations.length}
-        {isPosterSession(session) ? 'posters' : 'talks'}
+        {isPosterSession(session) ? "posters" : "talks"}
       </span>
     {/if}
     {#if attendees.length}

@@ -1,10 +1,15 @@
 <script lang="ts">
-  import type { Session } from '../shared/types';
-  import { gotoSearch, search, searchState, sessionsByDay } from './store.svelte';
-  import { dayTab, hhmm } from './format';
-  import SearchBox from './SearchBox.svelte';
-  import SessionCard from './SessionCard.svelte';
-  import SearchResults from './SearchResults.svelte';
+  import type { Session } from "../shared/types";
+  import {
+    gotoSearch,
+    search,
+    searchState,
+    sessionsByDay,
+  } from "./store.svelte";
+  import { dayTab, hhmm } from "./format";
+  import SearchBox from "./SearchBox.svelte";
+  import SessionCard from "./SessionCard.svelte";
+  import SearchResults from "./SearchResults.svelte";
 
   let { day }: { day: string } = $props();
 
@@ -12,7 +17,7 @@
   const groups = $derived.by(() => {
     const out: { time: string; sessions: Session[] }[] = [];
     for (const s of sessionsByDay.get(day) ?? []) {
-      const time = hhmm(s.starts_at) || '—';
+      const time = hhmm(s.starts_at) || "—";
       const last = out[out.length - 1];
       if (last && last.time === time) last.sessions.push(s);
       else out.push({ time, sessions: [s] });
@@ -30,7 +35,10 @@
 </script>
 
 <main>
-  <SearchBox bind:value={searchState.query} placeholder="Search {dayTab(day)} only…" />
+  <SearchBox
+    bind:value={searchState.query}
+    placeholder="Search {dayTab(day)} only…"
+  />
   {#if searching}
     <SearchResults
       entries={results.entries}

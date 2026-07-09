@@ -1,18 +1,18 @@
 <script lang="ts">
-  import { createNote, notes, notesFor } from './notebook.svelte';
-  import NoteCard from './NoteCard.svelte';
+  import { createNote, notes, notesFor } from "./notebook.svelte";
+  import NoteCard from "./NoteCard.svelte";
 
   let { itemId }: { itemId: string } = $props();
 
   const itemNotes = $derived(notesFor(itemId));
 
-  let newBody = $state('');
+  let newBody = $state("");
 
   function submit(): void {
     const trimmed = newBody.trim();
     if (!trimmed) return;
     createNote(itemId, trimmed);
-    newBody = '';
+    newBody = "";
   }
 </script>
 
@@ -26,14 +26,26 @@
     <NoteCard {note} />
   {/each}
 
-  <form class="note-form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
+  <form
+    class="note-form"
+    onsubmit={(e) => {
+      e.preventDefault();
+      submit();
+    }}
+  >
     <textarea
       class="note-input"
       placeholder="Add a note…"
       bind:value={newBody}
-      onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
-    ></textarea>
-    <button class="note-submit" type="submit" disabled={!newBody.trim()}>Post</button>
+      onkeydown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          submit();
+        }
+      }}></textarea>
+    <button class="note-submit" type="submit" disabled={!newBody.trim()}
+      >Post</button
+    >
   </form>
 </section>
 

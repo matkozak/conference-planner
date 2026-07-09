@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { myRsvp, rsvpAuthors, setRsvp } from './notebook.svelte';
-  import { initials } from './format';
+  import { myRsvp, rsvpAuthors, setRsvp } from "./notebook.svelte";
+  import { initials } from "./format";
 
   let { itemId }: { itemId: string } = $props();
 
@@ -9,11 +9,7 @@
 </script>
 
 <div class="rsvp">
-  <button
-    class="rsvp-btn"
-    class:going
-    onclick={() => setRsvp(itemId, !going)}
-  >
+  <button class="rsvp-btn" class:going onclick={() => setRsvp(itemId, !going)}>
     {going ? "✓ I'll be there" : "I'll be there"}
   </button>
   {#each others as author (author)}

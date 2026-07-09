@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+worker-configuration.d.ts
+public/program.*.json
+src/shared/generated/
+dist/
+.wrangler/

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { SearchEntry } from './store.svelte';
-  import { gotoSession, itemsById } from './store.svelte';
-  import { currentUser, notes, rsvps } from './notebook.svelte';
-  import { boardNo, dayLabel, displayTitle, hhmm } from './format';
-  import NoteCard from './NoteCard.svelte';
+  import type { SearchEntry } from "./store.svelte";
+  import { gotoSession, itemsById } from "./store.svelte";
+  import { currentUser, notes, rsvps } from "./notebook.svelte";
+  import { boardNo, dayLabel, displayTitle, hhmm } from "./format";
+  import NoteCard from "./NoteCard.svelte";
 
   interface PlanItem {
     entry: SearchEntry;
@@ -19,7 +19,7 @@
       if (!authors.includes(me)) continue;
       const entry = itemsById.get(itemId);
       if (!entry) continue;
-      const startsAt = entry.talk?.starts_at ?? entry.session.starts_at ?? '';
+      const startsAt = entry.talk?.starts_at ?? entry.session.starts_at ?? "";
       const day = entry.session.date;
       const list = byDay.get(day) ?? [];
       list.push({ entry, startsAt });
@@ -59,7 +59,7 @@
     {#each items as { entry, startsAt } (entry.talk?.id ?? entry.session.id)}
       {@const loc = entry.talk?.location ?? entry.session.location}
       <button class="row" onclick={() => open(entry)}>
-        <span class="time">{hhmm(startsAt) || '·'}</span>
+        <span class="time">{hhmm(startsAt) || "·"}</span>
         <span class="what">
           {itemTitle(entry)}
           {#if entry.talk}

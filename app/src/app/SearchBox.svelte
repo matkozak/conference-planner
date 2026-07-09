@@ -1,7 +1,7 @@
 <script lang="ts">
   let {
     value = $bindable(),
-    placeholder = '',
+    placeholder = "",
     focusOnMount = false,
   }: { value: string; placeholder?: string; focusOnMount?: boolean } = $props();
 
@@ -12,7 +12,7 @@
   });
 
   function clear(): void {
-    value = '';
+    value = "";
     input?.focus();
   }
 </script>

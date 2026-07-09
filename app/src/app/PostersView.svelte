@@ -1,11 +1,16 @@
 <script lang="ts">
-  import { gotoSession, posterSessionsByDay, search, searchState } from './store.svelte';
-  import { dayLabel, posterTopic, timeRange } from './format';
-  import SearchBox from './SearchBox.svelte';
-  import SearchResults from './SearchResults.svelte';
+  import {
+    gotoSession,
+    posterSessionsByDay,
+    search,
+    searchState,
+  } from "./store.svelte";
+  import { dayLabel, posterTopic, timeRange } from "./format";
+  import SearchBox from "./SearchBox.svelte";
+  import SearchResults from "./SearchResults.svelte";
 
   const results = $derived(
-    search(searchState.posters, { limit: 60, scope: 'posters' }),
+    search(searchState.posters, { limit: 60, scope: "posters" }),
   );
 
   // Computed once at mount; the program (and these maps) never change.
@@ -33,7 +38,9 @@
         <button class="card" onclick={() => gotoSession(session.id)}>
           <div class="title">{posterTopic(session)}</div>
           <div class="meta">
-            <span class="time">{timeRange(session.starts_at, session.ends_at)}</span>
+            <span class="time"
+              >{timeRange(session.starts_at, session.ends_at)}</span
+            >
             {#if session.location}<span>{session.location}</span>{/if}
             <span>{session.presentations.length} posters</span>
           </div>

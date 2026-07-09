@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Only run app checks when app/ files are staged.
+if git diff --cached --name-only | grep -q '^app/'; then
+  echo "pre-commit: format:check + check + test"
+  cd app
+  pnpm format:check
+  pnpm check
+  pnpm test
+fi

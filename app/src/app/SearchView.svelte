@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { search, searchState } from './store.svelte';
-  import SearchBox from './SearchBox.svelte';
-  import SearchResults from './SearchResults.svelte';
+  import { search, searchState } from "./store.svelte";
+  import SearchBox from "./SearchBox.svelte";
+  import SearchResults from "./SearchResults.svelte";
 
   const results = $derived(
     search(searchState.query, {

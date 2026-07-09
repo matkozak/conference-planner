@@ -1,12 +1,12 @@
 <script lang="ts">
-  import type { Note } from '../shared/notebook';
-  import { currentUser, deleteNote, updateNote } from './notebook.svelte';
-  import { noteStamp } from './format';
+  import type { Note } from "../shared/notebook";
+  import { currentUser, deleteNote, updateNote } from "./notebook.svelte";
+  import { noteStamp } from "./format";
 
   let { note }: { note: Note } = $props();
 
   let editing = $state(false);
-  let editBody = $state('');
+  let editBody = $state("");
   let confirming = $state(false);
   let confirmTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -30,17 +30,17 @@
   function saveEdit(): void {
     if (editBody.trim()) updateNote(note.id, editBody);
     editing = false;
-    editBody = '';
+    editBody = "";
   }
 
   function cancelEdit(): void {
     editing = false;
-    editBody = '';
+    editBody = "";
   }
 
   /** Short display name: first part of email before @. */
   function shortName(email: string): string {
-    const [local] = email.split('@');
+    const [local] = email.split("@");
     return local ?? email;
   }
 </script>
@@ -50,8 +50,13 @@
     <textarea
       class="note-edit"
       bind:value={editBody}
-      onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(); } if (e.key === 'Escape') cancelEdit(); }}
-    ></textarea>
+      onkeydown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          saveEdit();
+        }
+        if (e.key === "Escape") cancelEdit();
+      }}></textarea>
     <div class="note-actions">
       <button class="note-btn save" onclick={saveEdit}>Save</button>
       <button class="note-btn" onclick={cancelEdit}>Cancel</button>
@@ -65,8 +70,12 @@
     {#if note.author === currentUser.email}
       <div class="note-actions">
         <button class="note-btn" onclick={startEdit}>Edit</button>
-        <button class="note-btn danger" class:armed={confirming} onclick={askDelete}>
-          {confirming ? 'Really delete?' : 'Delete'}
+        <button
+          class="note-btn danger"
+          class:armed={confirming}
+          onclick={askDelete}
+        >
+          {confirming ? "Really delete?" : "Delete"}
         </button>
       </div>
     {/if}

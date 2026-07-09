@@ -1,8 +1,13 @@
 <script lang="ts">
-  import { isPosterSession, sessionsById, speakerLines, speakerNames } from './store.svelte';
-  import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from './format';
-  import NoteList from './NoteList.svelte';
-  import RsvpBar from './RsvpBar.svelte';
+  import {
+    isPosterSession,
+    sessionsById,
+    speakerLines,
+    speakerNames,
+  } from "./store.svelte";
+  import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from "./format";
+  import NoteList from "./NoteList.svelte";
+  import RsvpBar from "./RsvpBar.svelte";
 
   let { id, talk }: { id: string; talk?: string } = $props();
 
@@ -17,7 +22,9 @@
     if (!talk) return;
     expanded[talk] = true;
     requestAnimationFrame(() => {
-      document.getElementById(`talk-${talk}`)?.scrollIntoView({ block: 'start' });
+      document
+        .getElementById(`talk-${talk}`)
+        ?.scrollIntoView({ block: "start" });
     });
   });
 </script>
@@ -34,7 +41,7 @@
       {#if session.session_number}<span>{session.session_number}</span>{/if}
     </p>
     {#if speakerNames(session).length}
-      <p class="speakers">{speakerNames(session).join(' · ')}</p>
+      <p class="speakers">{speakerNames(session).join(" · ")}</p>
     {/if}
     <RsvpBar itemId={session.id} />
     {#if session.description}
@@ -42,7 +49,7 @@
     {/if}
 
     {#if session.presentations.length}
-      <h2>{session.presentations.length} {poster ? 'posters' : 'talks'}</h2>
+      <h2>{session.presentations.length} {poster ? "posters" : "talks"}</h2>
       {#each session.presentations as item (item.id)}
         <details
           class="talk"
@@ -52,7 +59,7 @@
         >
           <summary>
             <span class="time">
-              {(poster ? boardNo(item.location) : hhmm(item.starts_at)) || '·'}
+              {(poster ? boardNo(item.location) : hhmm(item.starts_at)) || "·"}
             </span>
             <span>{item.title}</span>
           </summary>
@@ -61,7 +68,7 @@
               <p class="meta">{item.location}</p>
             {/if}
             {#if speakerLines(item).length}
-              <p class="speakers">{speakerLines(item).join(' · ')}</p>
+              <p class="speakers">{speakerLines(item).join(" · ")}</p>
             {/if}
             {#if item.description}
               <p class="desc">{@html item.description}</p>
