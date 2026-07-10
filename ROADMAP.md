@@ -1,176 +1,119 @@
-# App Roadmap — aaic2026.kozak.ch
+# Conference app — architecture and roadmap
 
-A conference planning app for ~10 internal users, better than the official one.
-Ship date: today (2026-07-08). Conference: 2026-07-10 → 2026-07-16.
+`aaic2026.kozak.ch` is a mobile-first planning app for a small internal team at
+AAIC 2026. It is live, Access-protected, and built from the committed program
+dump in this repository.
 
-## Architecture
+## What is shipped
 
-All decisions confirmed by Mateusz on 2026-07-08. The program asset keeps the
-nested `presentations`-on-parent shape and drops the relational hints
-(`parent_id`, `subsession_ids`) — the client builds a `Map<id, item>` at load.
+- Browse sessions by day or poster program, with session and presentation
+  detail views.
+- Scoped day/poster search and global search. Exact substring results precede
+  typo-tolerant `uFuzzy` matches; abstract search is an explicit noisier option.
+- Shared notes on sessions or presentations, editable and deletable by their
+  author and synchronized live.
+- Session/presentation RSVPs with team initials on planning views.
+- Personal and team schedules assembled from RSVPs, plus the current user's
+  notes.
+- Venue-time (London/BST) and home-time (Zurich/CEST) display, stored as a
+  per-device preference.
+- CSV note export joined with program titles, and a JSON notebook snapshot used
+  by the guarded refresh workflow.
 
-### Platform: one Cloudflare Worker, full TypeScript
+## Current architecture
 
-- Single Worker serves static assets + a small API + hosts the Durable Object.
-- No Rust/WASM, no separate backend — YAGNI for 10 users.
-- Hono for Worker routing (tiny, typed, mature).
-- Access control: **Cloudflare Access** in front of `aaic2026.kozak.ch` with an
-  email allowlist. The Worker trusts the `Cf-Access-Authenticated-User-Email`
-  header — safe because the Access-protected custom domain is the only ingress
-  (workers.dev and preview URLs are disabled; Access strips inbound `Cf-Access-*`
-  headers). No JWT validation in the Worker; revisit if another ingress ever
-  appears. That email _is_ the user identity. Zero auth UI.
+### One Cloudflare Worker
 
-### Program data: static JSON asset, not D1
+A single TypeScript Worker serves static assets, routes the small Hono API, and
+binds the notebook Durable Object. Cloudflare's Vite plugin builds the Svelte 5
+frontend and Worker together.
 
-The full trimmed program (all sessions, presentations, descriptions, people
-names) is ~1.7 MB gzipped. So:
+The Access-protected custom domain is intended to be the only production
+ingress. `workers.dev` and preview URLs are disabled in `wrangler.jsonc` so they
+cannot bypass Access.
 
-- A build script (`app/scripts/build-program.ts`) transforms
-  `data/aaic_2026/sessions.json` + `people.json` into a versioned static asset
-  (`program.<hash>.json`) served with immutable cache headers. It sorts
-  presentations by start time (EventPilot's order is unreliable) and ships
-  descriptions as sanitized HTML (bare b/br/sup/sub/i/em/strong/p only).
-- The client fetches it once, caches it; all browsing/search is client-side
-  and instant — and works on terrible venue WiFi.
-- **No D1 at all** (original plan was SQLite→D1; dropped because the Worker can
-  read its own static asset for the one server-side need, the notes export).
-  D1 remains a cheap escape hatch if a real server-side query need appears.
+The Worker currently uses `Cf-Access-Authenticated-User-Email` as identity and
+falls back to `anonymous` in local development. It does not yet validate the
+Access JWT; that is the first roadmap item below.
 
-### User data: one Durable Object = "the team notebook"
+### Static program data
 
-- A single named DO instance holds all user-generated data (notes, tags,
-  RSVPs) in its built-in SQLite storage. 10 users → one object, no sharding.
-- Clients connect via WebSocket (hibernation API); writes broadcast to all
-  connected clients, so everyone sees notes/RSVPs live.
-- Fallback path: plain `fetch` endpoints on the DO for initial load and for
-  clients whose socket dropped.
-- Alternative considered: D1 tables + polling. Simpler but no liveness, and
-  the DO is the textbook fit here.
+`app/scripts/build-program.ts` transforms
+`data/aaic_2026/{sessions,people}.json` into a content-hashed
+`program.<hash>.json` asset. It:
 
-### Frontend: Svelte 5 + Vite + TypeScript
+- trims the lossless scrape to fields used by the client;
+- sorts presentations by start time;
+- sanitizes description HTML to bare formatting tags; and
+- drops relational hints that are redundant in the nested client shape.
 
-- Elm-_style_, not Elm: one central store module, unidirectional data flow,
-  messages-as-functions. No second language, shared types with the Worker.
-- Mobile-first layout; the phone in the conference hallway is the primary
-  device.
-- Fuzzy search: `uFuzzy` (tiny, excellent) over an in-memory index of titles +
-  speakers + locations.
+The current payload is about 1.9 MiB compressed. Its immutable URL makes repeat
+loads cache-friendly, and all browsing and search happen client-side. There is
+no D1 database: the Worker reads its static asset for the one server-side join
+needed by note export.
 
-### Repo shape
+### One team-notebook Durable Object
 
-```
-app/
-  package.json          # single package (pnpm-workspace.yaml is config only)
-  wrangler.jsonc
-  scripts/build-program.ts
-  src/
-    worker/             # Hono app + NotebookDO
-    shared/             # types shared by worker & client (Note, Rsvp, Program…)
-    app/                # Svelte frontend
-  public/               # built program asset + static files
-```
+One named `NotebookDO` instance stores all team notes and RSVPs in its built-in
+SQLite database. This deliberately avoids sharding for roughly ten users.
 
-## Milestones
+Clients connect through a hibernatable WebSocket. The object sends an initial
+snapshot and broadcasts writes to connected clients. The client reconnects with
+capped backoff after disconnection.
 
-Status 2026-07-08 (end of build day): **M1–M4 shipped** and live at
-aaic2026.kozak.ch. Access is settled: one app, one reusable policy
-("AC Immune" — the `@acimmune.com` domain plus two external addresses);
-remaining is only telling the team the app exists. A few aesthetic nits are
-parked for a future session.
+There is an unused notes-only REST endpoint, but no complete REST fallback in the
+client. Notes and RSVP writes require a live socket; browsing the cached program
+does not.
 
-Key decisions and features layered on top of the original milestones:
+### Shared TypeScript domain
 
-- **Search**: scoped-plus-global. Each day view filters that day only; the
-  Posters tab filters posters; a Search tab covers everything (shares the
-  day views' query; opt-in "also search abstracts" toggle — abstracts carry
-  co-author/affiliation noise, so they're out of the default index).
-  Two-pass ranking: exact substring matches always precede typo-tolerant
-  backfill, split by a visible "close matches" divider. Primary-speaker
-  organizations are indexed, so company names ("Roche") hit their talks.
-  Every search box has a clear (×) button.
-- **Navigation**: one universal sticky topbar (back arrow + tabs in session
-  detail, with the session's day tab lit). Uniform pills; active state
-  changes colors only (no metric shift) and `scrollbar-gutter: stable`
-  keeps layout fixed. Under 620px the bar compacts to day numbers +
-  Posters/Me icons; the back arrow and Search tab disappear (swipe-back and
-  the day views' "Search all days →" row cover them).
-- **Notes**: two-tap delete; timestamps as "8 Jul 14:32" local; shared
-  NoteCard component renders them identically in session detail and Me.
-- **Earlier polish**: honest search-result kinds with talk-level deep links
-  (`#/s/<session>/<talk>`), sorted talks, sanitized-HTML descriptions,
-  unique-previous back stack with scroll restoration, persistent queries,
-  "Name, Org" speaker lines on expanded talks.
-- **Tooling**: pnpm (lockfile `pnpm-lock.yaml`, build scripts allowlisted
-  in `package.json`). The Zero Trust org label is "kozak.ch".
+Wire and program types live in `app/src/shared/` and are imported by the Worker,
+frontend, and build tooling. The frontend uses a small central Svelte store and
+hash routes; it does not duplicate server-domain types or introduce a second
+state framework.
 
-### M1 — Walking skeleton (get the pipeline proven early)
+## Roadmap
 
-- `app/` scaffold: Vite + Svelte 5 + Hono + wrangler, strict TS, vitest.
-- `build-program.ts` producing the trimmed program asset.
-- Worker serving the SPA + program asset.
-- Deploy to `aaic2026.kozak.ch` (DNS + Worker route + Cloudflare Access
-  policy). Access policy (final): allow `@acimmune.com` +
-  kozak.mateusz@gmail.com + andrea_pfeifer@bluewin.ch, email OTP only,
-  168h sessions.
+### Validate the Cloudflare Access JWT
 
-### M2 — Browse & find
+Before treating the Access email as authoritative, validate the
+`Cf-Access-Jwt-Assertion` signature, issuer, and application audience, then take
+identity from the validated claims. Cloudflare currently recommends this even
+when Access is directly in front of a Worker.
 
-- Day navigation, defaulting to _today_ in the user's local timezone; sticky
-  day selection.
-- Session list → session detail with presentations, times, rooms, speakers.
-- Fuzzy finder (fast, keyboard- and thumb-friendly).
+Implementation should keep the single-ingress setup and local-development
+fallback simple. If a JWT library is added, document and justify the dependency
+and configure the team domain and Access audience as Worker bindings rather than
+hard-coded values.
 
-### M3 — Notes (the point of the whole thing)
+Reference:
+[Cloudflare Access JWT validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/).
 
-- NotebookDO with SQLite schema: `notes(id, item_id, author, body,
-created_at, updated_at)`.
-- Notes attach to sessions _or_ presentations; visible to everyone; editable
-  by their author.
-- Live sync via WebSocket broadcast.
-- Export endpoint for the central authority: all notes as CSV/XLSX-friendly
-  download, joined with session/presentation titles.
+### Resolve the incomplete REST fallback
 
-### M4 — Bonus (only if the day allows)
+Choose one honest behavior:
 
-- ✅ "I'll be there" RSVP per session/talk: toggle + initials chips on the
-  detail view, aggregated team initials (session ∪ its talks) on day cards.
-  `rsvps(item_id, author)` table in the NotebookDO, idempotent `rsvp:set`
-  toggle message, included in the WS snapshot.
-- ✅ "My stuff" view (`#/me`, "Me" tab): my RSVP schedule grouped by day
-  (times + rooms/boards) and my notes — editable/deletable in place, with
-  jump-to-item links.
-- ✅ Timezone toggle (2026-07-09): venue (BST) vs Zurich (CEST) display.
-  The "All times BST (venue) · switch to CEST" caption on list views IS the
-  toggle — no prefs page. Cosmetic and per-device, so it's localStorage
-  (`aaic:tz`), not the DO. Program times carry the venue offset, so London
-  stays a string slice and Zurich is one cached `Intl.DateTimeFormat`; no
-  session ends past mid-afternoon, so days never shift.
-- ✅ Team view (2026-07-09, `#/team`, "Team" tab): everyone's RSVPs grouped
-  by day with attendee initials (own chip filled) — the Me schedule pointed
-  at the whole notebook via a shared PlanRow component. Read-only over
-  existing RSVP data; deliberately no share/opt-out pref — RSVPs are already
-  public in-app, and it's a team tool for the team.
-- ✂️ Controlled-vocabulary tags — dropped (2026-07-08).
-- ✂️ Offline polish — deferred; the immutable-cached program asset covers
-  the browsing case already.
+- keep WebSocket reconnect as the only synchronization path and remove the
+  unused `/api/notes` endpoint; or
+- add a complete read fallback containing both notes and RSVPs and use it while
+  the socket reconnects.
 
-## Parked for a future session
+Do not add offline writes unless actual venue use demonstrates the need.
 
-- A couple of aesthetic nits (Mateusz has a list).
-- Search kind filters (talks/posters/sessions) in the Search tab — wanted,
-  but explicitly "ship the basics first".
-- RSVPs in the CSV export if the central authority asks (~10 lines in the
-  export route).
-- Re-enable pnpm's `verifyDepsBeforeRun` once its internal crash is fixed
-  upstream (disabled in `pnpm-workspace.yaml`, see comment).
-- If plain day numbers in the mobile topbar prove too terse, fall back to
-  two-line weekday-initial pills.
+### Small product follow-ups
 
-## Deliberately not doing
+- Search kind filters for sessions, talks, and posters.
+- Include RSVPs in CSV export if the team needs them centrally.
+- Re-enable pnpm's `verifyDepsBeforeRun` after its upstream crash is fixed; see
+  the comment in `pnpm-workspace.yaml`.
 
-- Live re-scraping from the app (scraper stays a manual, periodic process).
-- Author/affiliation parsing beyond the formatted `description_html` block.
-- Accounts, roles, permissions beyond Access + author-owns-their-notes.
-- Access JWT validation in the Worker (single Access-only ingress instead).
-- Any framework churn after M1.
+## Deliberate non-goals
+
+- Live or automatic EventPilot scraping from the app.
+- D1 or another server-side copy of immutable program data without a real query
+  need.
+- Full author/affiliation modeling beyond preserved formatted descriptions.
+- App-managed accounts, roles, or authentication UI beyond Cloudflare Access
+  and author-owned note editing.
+- Durable Object sharding for a team of this size.
+- Controlled-vocabulary tags, a preferences page, or framework churn.

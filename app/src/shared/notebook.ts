@@ -1,4 +1,4 @@
-/** Wire protocol for the Notebook WebSocket + REST fallback. */
+/** Wire protocol for the Notebook WebSocket and portable snapshot export. */
 
 export interface Note {
   id: number;

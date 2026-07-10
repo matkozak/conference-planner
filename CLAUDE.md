@@ -7,26 +7,26 @@ Two things live here:
    See `README.md` for endpoints and rerun instructions.
 2. **Conference app** (`app/`, TypeScript, Cloudflare Worker) — a better
    conference app for ~10 internal users at `aaic2026.kozak.ch`.
-   See `ROADMAP.md` for architecture and milestones.
+   See `ROADMAP.md` for current architecture and open work.
 
-The scraped data is **immutable**: refreshed only by deliberate scraper reruns,
-never mutated by the app.
+The scraped data is **immutable to the app**: refreshed only through the
+deliberate scraper pipeline, never mutated at runtime.
 
 ## Layout
 
 - `scripts/` — Python scraper + exporters (stdlib only, keep it that way)
 - `data/aaic_2026/` — the committed dump (JSON is source of truth)
-- `tests/` — Python data-integrity tests
+- `tests/` — Python data-integrity, refresh, and scraper-resume tests
 - `app/` — the Worker app (own `package.json`, everything TS)
-- `STATUS.md` — data-side status and caveats
-- `ROADMAP.md` — app-side architecture decisions and milestones
+- `SCRAPER.md` — EventPilot protocol, normalized data model, and upstream quirks
+- `ROADMAP.md` — current app architecture, open work, and non-goals
 
 ## Commands
 
 Data side (Python 3, `.venv` exists but stdlib suffices):
 
 ```bash
-python3 -m unittest tests.test_data_integrity   # verify the dump
+python3 -m unittest   # complete data, refresh, and scraper test suite
 ```
 
 App side (Node LTS + pnpm via mise, run from `app/`; pnpm only — the
@@ -51,12 +51,12 @@ pnpm run types    # regenerate worker-configuration.d.ts after wrangler.jsonc ch
   `app/src/shared/` and are imported by both Worker and frontend — never
   duplicate a type across that boundary.
 - Dependencies: minimal and mature. Justify each new one in the PR/commit.
-- Identity comes from Cloudflare Access headers; the app has **no auth code**
-  of its own beyond reading the verified email.
+- Identity currently comes from the Cloudflare Access email header; JWT
+  validation is an explicit `ROADMAP.md` item. The app has no auth UI.
 - Secrets/cookies never committed. The EventPilot cookie comes from
   `AAIC_COOKIE` env only.
 
 ## Verification
 
-Before considering any app change done: `npm run check` and `npm run test`
+Before considering any app change done: `pnpm run check` and `pnpm run test`
 from `app/` must pass. For data changes: the unittest above must pass.

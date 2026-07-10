@@ -52,7 +52,7 @@ export class NotebookDO extends DurableObject<Env> {
     });
   }
 
-  // --- REST fallback (initial load + export) ---
+  // --- Read methods used by WebSocket snapshots and exports ---
 
   async getAllNotes(): Promise<NoteRow[]> {
     return this.ctx.storage.sql

@@ -6,7 +6,7 @@
  *        public/_headers                     (immutable cache headers)
  *        src/shared/generated/program-meta.ts (typed path constant)
  *
- * Run from app/: `npm run program` (plain Node, type-stripped).
+ * Run from app/: `pnpm run program` (plain Node, type-stripped).
  */
 import { createHash } from "node:crypto";
 import {

@@ -1,251 +1,123 @@
-# AAIC 2026 Program Dump
+# AAIC 2026 — program data and conference app
 
-This workspace contains a small scraper for the AAIC 2026 EventPilot web planner.
-It dumps the conference program into local JSON and CSV for planning outside the
-official app.
+This repository contains two deliberately separate pieces:
 
-## Conference App
+1. A Python standard-library scraper and export pipeline for the AAIC 2026
+   EventPilot planner. Its committed JSON dump is the source of truth.
+2. A small internal conference app at
+   [aaic2026.kozak.ch](https://aaic2026.kozak.ch), implemented as a Cloudflare
+   Worker with a Svelte frontend and a Durable Object team notebook.
 
-The dump feeds an internal conference app for the team, live at
-[aaic2026.kozak.ch](https://aaic2026.kozak.ch) (Cloudflare Worker, gated by
-Cloudflare Access). The app lives in `app/`; `app/scripts/build-program.ts`
-turns `data/aaic_2026/{sessions,people}.json` into the static program asset it
-serves. See `ROADMAP.md` for architecture and `CLAUDE.md` for commands.
+The app never changes the scraped program. Program refreshes are explicit,
+reviewed operations performed by the scraper tooling.
 
-## Current Result
+## Current data
 
-The latest completed dump is in `data/aaic_2026/`:
+`data/aaic_2026/` contains the July 10 refresh:
 
-- `data/aaic_2026/sessions.json`
-- `data/aaic_2026/people.json`
-- `data/aaic_2026/sessions.csv`
-- `data/aaic_2026/presentations_*.csv`
-- `data/aaic_2026/aaic_2026.sqlite`
+| Metric                         | Count |
+| ------------------------------ | ----: |
+| Parent sessions                |   363 |
+| Parent sessions with locations |   361 |
+| Nested presentations           | 7,915 |
+| People                         | 6,105 |
+| Detail or people fetch errors  |     0 |
 
-Verification from the completed run:
+The committed files are:
 
-- 360 parent sessions
-- 360 sessions with parsed locations
-- 6,850 nested presentations
-- 5,217 people records
-- 0 detail fetch errors
-- 0 people fetch errors
-- 0 missing people references
-- 0 parent/subsession/presentation consistency errors
-- CSV has 361 lines including the header
+- `sessions.json` and `people.json`: source-of-truth scraped data.
+- `sessions.csv`: compact parent-session index (364 lines with its header).
+- `presentations_*.csv`: derived daily planning views.
+- `aaic_2026.sqlite`: derived normalized database.
 
-## Main Script
+The integrity suite verifies people references, parent/child relationships,
+categories, duplicate ids, description coverage, and SQLite row counts and
+foreign keys.
 
-Use `scripts/scrape_aaic.py`. It uses only Python standard library modules.
+## Controlled program refresh
 
-Resume an interrupted scrape into the same output directory:
+Never scrape directly into `data/aaic_2026/`. The refresh helper stages a full
+candidate under ignored `.refresh/`, validates it, compares program ids and
+content, and checks removals against a fresh snapshot of notebook notes and
+RSVPs.
 
-```bash
-AAIC_COOKIE='miplanner0=...; xphrj=...; xphrj_web=...; web_cc5172e7=...' \
-  python3 scripts/scrape_aaic.py --outdir .refresh/partial --resume --people
-```
+`AAIC_COOKIE` must contain a current logged-in EventPilot cookie. It can be
+provided by the ignored local mise configuration; never commit or hard-code it.
 
-Do not commit or hard-code the cookie. Copy it from a logged-in browser request
-to `https://eppro01.ativ.me/web/api.php`.
-
-Useful options:
-
-- `--resume`: merge an existing `sessions.json`, preserve completed session,
-  presentation, and person records, and retry missing or failed details.
-- `--no-details`: only fetch the parent session list, without detail pages.
-- `--date YYYY-MM-DD`: restrict to one date. Can be repeated.
-- `--max-sessions N`: limit a validation run.
-- `--sleep 0.15`: delay between session-list page requests, in seconds.
-- `--detail-workers 3`: concurrent agenda-detail fetches.
-- `--detail-interval 0.05`: minimum delay between detail request starts, in seconds.
-- `--save-every 100`: write partial JSON/CSV progress after this many detail results.
-- `--log-every 50`: log every Nth successful presentation detail; errors always log.
-- `--people`: fetch unique `speaker_ids`/`person_ids` from the EventPilot
-  `speakers` table and write `people.json`.
-- `--people-workers 3`: concurrent speaker/person fetches.
-- `--people-interval 0.05`: minimum delay between speaker/person request starts.
-
-### Controlled program refresh
-
-Do not run a full refresh directly into `data/aaic_2026/`. The refresh helper
-scrapes into an ignored staging directory, validates it, compares every program
-item id with the current dump, and writes `report.md` + `report.json` without
-changing canonical data.
-
-Prepare a full candidate; the scraper reads `AAIC_COOKIE` from mise:
+Prepare a candidate:
 
 ```bash
 python3 -m scripts.refresh_aaic prepare
 ```
 
-The command prints the staging directory and, when finished, the exact `apply`
-command. If scraping is interrupted, resume that directory:
+The command prints its staging path and the exact eventual `apply` command. If
+the scrape is interrupted, resume that same directory:
 
 ```bash
 python3 -m scripts.refresh_aaic prepare \
-  --stage .refresh/20260710T120000Z --resume
+  --stage ".refresh/{timestamp}" --resume
 ```
 
-A fresh team-notebook snapshot is fetched through Cloudflare Access immediately
-before each inspection. On the first request after the Access session expires,
-`cloudflared` opens the normal browser login flow. To re-run the comparison:
+Inspect an existing candidate again:
 
 ```bash
-python3 -m scripts.refresh_aaic inspect .refresh/20260710T120000Z
+python3 -m scripts.refresh_aaic inspect ".refresh/{timestamp}"
 ```
 
-Removed ids with no notes or RSVPs become review-only changes. Referenced
-removals and possible id reuse still block promotion. The inspected snapshot is
-stored in ignored staging and verified again by `apply`.
+Each inspection fetches a fresh notebook snapshot through Cloudflare Access.
+When its session has expired, `cloudflared` opens the normal browser login flow.
+For offline recovery or tests, `--notebook-snapshot PATH` replaces that fetch.
 
-For offline recovery or testing, `--notebook-snapshot PATH` overrides the live
-fetch on `prepare`, `inspect`, or `apply`.
+Review the generated `report.md` before promotion. Structural validation errors,
+possible id reuse, and removed ids referenced by notes or RSVPs block promotion.
+Unreferenced removals remain visible for review but do not block. A deliberate
+removal or reuse can be acknowledged per id with `--allow-id-change ID`; this
+does not migrate notebook references.
 
-Review the generated Markdown report. Any removed id, possible id reuse,
-or structural validation error blocks promotion. After review, run the printed
-command to promote an unchanged, blocker-free candidate:
+Promote an unchanged, reviewed candidate:
 
 ```bash
-python3 -m scripts.refresh_aaic apply .refresh/20260710T120000Z
+python3 -m scripts.refresh_aaic apply ".refresh/{timestamp}"
 ```
 
-A deliberate upstream id removal/reuse can be acknowledged individually with
-`--allow-id-change ID`; this acknowledges the impact but does not migrate user
-references. Validation errors cannot be overridden. Promotion rechecks both
-candidate and baseline hashes, fetches the notebook again immediately before
-the final blocker check, replaces each source/derived file atomically, and
-regenerates daily CSV and SQLite exports. It never deploys the app.
+`apply` rechecks candidate and baseline hashes, fetches the notebook immediately
+before its final blocker check, promotes files atomically, and regenerates the
+CSV and SQLite exports. It never builds or deploys the app; rebuild the app asset
+separately with `pnpm run program` from `app/`.
 
-Agenda detail records are fetched concurrently but conservatively. Controlled
-refreshes use 4 workers with a 0.20 second request-start interval; people use 4
-workers with a 0.05 second interval. Detail logs include per-record timing and
-mark likely rate-limit errors.
+Controlled refreshes default to four agenda-detail workers with a 0.20-second
+request-start interval, and four people workers with a 0.05-second interval.
+Lower concurrency or increase the interval if EventPilot begins rate-limiting.
 
-Example smoke test:
+## Direct scraper use
+
+`scripts/scrape_aaic.py` is useful for smoke tests and resuming low-level work.
+It uses only the Python standard library.
 
 ```bash
 AAIC_COOKIE='...' python3 scripts/scrape_aaic.py \
-  --date 2026-07-12 \
-  --max-sessions 2 \
-  --outdir aaic_sample
+  --date 2026-07-12 --max-sessions 2 --outdir aaic_sample
 ```
 
-## Data Flow
+Important options:
 
-The planner shell is:
+- `--resume`: preserve completed session, presentation, and person records and
+  retry missing or failed details.
+- `--date YYYY-MM-DD`: restrict the scrape to one date; repeatable.
+- `--max-sessions N`: limit a validation run.
+- `--no-details`: fetch only parent-session lists.
+- `--people`: fetch referenced EventPilot `speakers` records into `people.json`.
+- `--detail-workers`, `--detail-interval`, `--people-workers`, and
+  `--people-interval`: bound request concurrency and pacing.
+- `--save-every` and `--log-every`: control checkpoints and progress logging.
 
-```text
-https://eppro01.ativ.me/src/EventPilot/php/express/web/planner.php?id=ALZ19292F861B994564D
-```
+Copy the cookie from a logged-in browser request to
+`https://eppro01.ativ.me/web/api.php`. The scraper also accepts `--cookie`, but
+the environment variable avoids leaving credentials in shell history.
 
-The Program tab iframe is:
+## Derived exports
 
-```text
-https://eppro01.ativ.me/web/plantab.php?id=ALZ19292F861B994564D&plannersession=true&tab=urn%3Aeventpilot%3Aplanner%3Aagenda%3A%3A
-```
-
-The session list endpoint is:
-
-```text
-POST https://eppro01.ativ.me/web/api.php
-```
-
-with form data equivalent to:
-
-```text
-interface=webfilter
-action=getlist
-confid=ALZ19292F861B994564D
-table=agenda
-filters[0][field]=parent
-filters[0][val]=
-filters[1][field]=date
-filters[1][val]=YYYY-MM-DD
-order[]=start
-order[]=c.position
-order[]=case when sessnum='' then '' else 'ZZZZZZZZZ' end, sessnum
-order[]=UPPER(title)
-order[]=case when parent='' then '' else 'ZZZZZZZZZ' end, parent
-offset=0
-limit=50
-adapter=PlannerAgendaDayListView
-urn=urn:eventpilot:planner:agenda::
-selectonly=
-```
-
-The response is awkward: an EventPilot XML wrapper often contains another
-escaped XML response, and the inner response contains escaped HTML list cells.
-`scripts/scrape_aaic.py` mirrors the app's tolerant parsing approach and then parses the
-HTML cells.
-
-For each agenda item, the detail endpoint is:
-
-```text
-POST https://eppro01.ativ.me/web/api.php
-```
-
-with form data:
-
-```text
-interface=eptable
-action=gettabledata
-confid=ALZ19292F861B994564D
-table=agenda
-tid=<SESSION_OR_PRESENTATION_ID>
-```
-
-The agenda table detail response provides:
-
-- description HTML
-- date plus start/stop times
-- location
-- session number
-- speaker/person ids
-- nested presentation ids via `subsessions`
-
-## Parsed Output Shape
-
-Each JSON session contains fields like:
-
-```json
-{
-  "id": "S510",
-  "date": "2026-07-12",
-  "category": "Featured Research Sessions",
-  "title": "Featured Research Sessions - Metabolic adaptations and mitochondrial dysfunction in ADRD",
-  "starts_at": "2026-07-12T09:00:00+01:00",
-  "ends_at": "2026-07-12T10:30:00+01:00",
-  "location": "Victoria 5/6",
-  "session_number": "1-19-FRS-A",
-  "description_html": "",
-  "description_text": "",
-  "speaker_ids": ["1926", "749"],
-  "subsession_ids": ["P16407", "P2740"],
-  "presentations": [
-    {
-      "id": "P2740",
-      "title": "Metabolic biomarkers across the AD continuum: insights into how they maycontribute to neuropathology.",
-      "parent_id": "S510",
-      "starts_at": "2026-07-12T09:02:00+01:00",
-      "ends_at": "2026-07-12T09:12:00+01:00",
-      "location": "Victoria 5/6",
-      "description_text": "Frederic Calon;\nUniversite Laval, Faculty of Pharmacy, Quebec, QC, Canada"
-    }
-  ]
-}
-```
-
-The session CSV is a compact parent-session index. Daily presentation CSVs in
-`data/aaic_2026/presentations_*.csv` are derived planning views.
-
-When fetched with `--people`, `data/aaic_2026/people.json` is a map keyed by
-EventPilot person id. Each record preserves the raw `speakers` table payload and
-normalizes common fields such as name, degree, organization, city/state, and
-country.
-
-## Derived Exports
-
-Daily presentation CSVs:
+Regenerate daily CSVs:
 
 ```bash
 python3 scripts/export_presentations_by_date.py \
@@ -254,7 +126,7 @@ python3 scripts/export_presentations_by_date.py \
   --outdir data/aaic_2026
 ```
 
-SQLite:
+Regenerate SQLite:
 
 ```bash
 python3 scripts/export_sqlite.py \
@@ -263,51 +135,14 @@ python3 scripts/export_sqlite.py \
   --output data/aaic_2026/aaic_2026.sqlite
 ```
 
-The SQLite export creates normalized `sessions`, `presentations`, `people`,
-`session_people`, and `presentation_people` tables, plus an `agenda_items` view
-that unions sessions and presentations for schedule search. If `people.json` is
-missing, the exporter still creates placeholder people rows from ids referenced
-by sessions and presentations. It keeps the lossless HTML descriptions but does
-not duplicate plain-text descriptions or full source records; JSON remains the
-source of truth.
-
 ## Verification
 
-The repository includes data integrity tests for the committed dump:
+Run the complete Python suite after scraper, refresh, or data changes:
 
 ```bash
-python3 -m unittest tests.test_data_integrity
+python3 -m unittest
 ```
 
-The tests verify that all referenced people ids exist in `people.json`,
-subsession ids match embedded presentations, presentation parent ids are
-consistent, and SQLite foreign keys/row counts match the JSON source.
-
-See `STATUS.md` for current caveats and likely next modeling steps.
-
-## Important Files
-
-- `scripts/scrape_aaic.py`
-- `scripts/export_presentations_by_date.py`
-- `scripts/export_sqlite.py`
-- `tests/test_data_integrity.py`
-- `README.md`
-- `STATUS.md`
-- `CLAUDE.md` and `ROADMAP.md` (project practices and app architecture)
-- `app/` (the conference app served at aaic2026.kozak.ch)
-- `data/aaic_2026/sessions.json`
-- `data/aaic_2026/people.json` if fetched with `--people`
-- `data/aaic_2026/sessions.csv`
-- `data/aaic_2026/presentations_*.csv`
-- `data/aaic_2026/aaic_2026.sqlite` if exported
-
-## Notes For Next Agent
-
-- Network access may require escalation in the managed sandbox.
-- The cookie expires; if requests start returning access errors, copy a fresh
-  `Cookie:` header from the browser's Network tab.
-- The app returns malformed or nested XML-ish responses. Avoid replacing the
-  tolerant decoder with strict XML parsing unless the endpoint changes.
-- Detail fetching uses conservative bounded concurrency. If the app starts
-  returning likely limit errors, lower `--detail-workers` or increase
-  `--detail-interval`.
+For the reverse-engineered API, normalized data model, and upstream quirks, see
+`SCRAPER.md`. For app architecture and open work, see `ROADMAP.md`. Contributor
+and agent conventions live in `AGENTS.md` (`CLAUDE.md` is its source file).

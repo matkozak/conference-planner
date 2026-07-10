@@ -42,7 +42,7 @@ app.get("/api/ws", (c) => {
   return stub.fetch(new Request(c.req.url, { headers }));
 });
 
-// --- REST fallback: all notes (for initial load if WS fails) ---
+// --- Notes-only read endpoint (the client currently reconnects via WebSocket) ---
 app.get("/api/notes", async (c) => {
   const stub = c.env.NOTEBOOK.getByName("team");
   const notes = await stub.getAllNotes();
