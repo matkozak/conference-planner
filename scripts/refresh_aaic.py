@@ -25,6 +25,7 @@ from scripts.scrape_aaic import write_outputs
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATA = ROOT / "data" / "aaic_2026"
 DEFAULT_REFRESH_ROOT = ROOT / ".refresh"
+NOTEBOOK_URL = "https://aaic2026.kozak.ch/api/notebook/export.json"
 REPORT_JSON = "report.json"
 REPORT_MD = "report.md"
 STAGED_NOTEBOOK = "notebook-snapshot.json"
@@ -322,6 +323,36 @@ def suspected_remaps(
     return matches
 
 
+def snapshot_references(snapshot: Any, source: str) -> dict[str, dict[str, int]]:
+    try:
+        if not isinstance(snapshot["program_version"], str):
+            raise TypeError("program_version must be a string")
+        if not isinstance(snapshot["exported_at"], str):
+            raise TypeError("exported_at must be a string")
+        notes = snapshot["notes"]
+        rsvps = snapshot["rsvps"]
+        if not isinstance(notes, list) or not isinstance(rsvps, list):
+            raise TypeError("notes and rsvps must be lists")
+    except (KeyError, TypeError) as exc:
+        raise ValueError(f"invalid notebook snapshot {source}: {exc}") from exc
+
+    counts: dict[str, dict[str, int]] = defaultdict(lambda: {"notes": 0, "rsvps": 0})
+    try:
+        for note in notes:
+            item_id = note["item_id"]
+            if not isinstance(item_id, str) or not item_id:
+                raise TypeError("note item_id must be a non-empty string")
+            counts[item_id]["notes"] += 1
+        for rsvp in rsvps:
+            item_id = rsvp["item_id"]
+            if not isinstance(item_id, str) or not item_id:
+                raise TypeError("rsvp item_id must be a non-empty string")
+            counts[item_id]["rsvps"] += 1
+    except (KeyError, TypeError) as exc:
+        raise ValueError(f"invalid notebook snapshot {source}: {exc}") from exc
+    return dict(counts)
+
+
 def notebook_references(
     snapshot_path: Path | None,
 ) -> tuple[dict[str, dict[str, int]], list[str]]:
@@ -329,16 +360,68 @@ def notebook_references(
         return {}, ["No notebook snapshot supplied; user-data impact is unknown."]
     try:
         snapshot = load_json(snapshot_path)
-        notes = snapshot["notes"]
-        rsvps = snapshot["rsvps"]
-    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+    except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"invalid notebook snapshot {snapshot_path}: {exc}") from exc
-    counts: dict[str, dict[str, int]] = defaultdict(lambda: {"notes": 0, "rsvps": 0})
-    for note in notes:
-        counts[str(note["item_id"])]["notes"] += 1
-    for rsvp in rsvps:
-        counts[str(rsvp["item_id"])]["rsvps"] += 1
-    return dict(counts), []
+    return snapshot_references(snapshot, str(snapshot_path)), []
+
+
+def fetch_notebook_snapshot(destination: Path) -> Path:
+    """Fetch a fresh notebook snapshot through the user's Access session."""
+    print(f"Fetching live notebook snapshot from {NOTEBOOK_URL}", flush=True)
+    command = [
+        "mise",
+        "exec",
+        "--",
+        "cloudflared",
+        "access",
+        "curl",
+        NOTEBOOK_URL,
+        "--fail",
+        "--silent",
+        "--show-error",
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            check=True,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise SystemExit(
+            "mise is required to run cloudflared; install the tools from mise.toml."
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            f"Could not fetch the live notebook snapshot (exit {exc.returncode})."
+        ) from exc
+
+    try:
+        snapshot = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(
+            f"Live notebook endpoint returned invalid JSON: {exc}"
+        ) from exc
+    try:
+        snapshot_references(snapshot, NOTEBOOK_URL)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    content = json.dumps(snapshot, indent=2, ensure_ascii=False) + "\n"
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        prefix=f".{destination.name}.",
+        dir=destination.parent,
+        delete=False,
+    ) as tmp:
+        tmp.write(content)
+        temporary_path = Path(tmp.name)
+    os.replace(temporary_path, destination)
+    print(f"Saved live notebook snapshot to {destination}", flush=True)
+    return destination
 
 
 def dataset_counts(
@@ -613,13 +696,19 @@ def prepare(args: argparse.Namespace) -> None:
     if args.resume:
         command.append("--resume")
     subprocess.run(command, cwd=ROOT, check=True)
-    report = write_report(args.baseline, stage, args.notebook_snapshot)
+    snapshot_path = args.notebook_snapshot
+    if snapshot_path is None:
+        snapshot_path = fetch_notebook_snapshot(stage / STAGED_NOTEBOOK)
+    report = write_report(args.baseline, stage, snapshot_path)
     print_report_result(stage, report)
 
 
 def inspect(args: argparse.Namespace) -> None:
     require_staging(args.stage, args.baseline)
-    report = write_report(args.baseline, args.stage, args.notebook_snapshot)
+    snapshot_path = args.notebook_snapshot
+    if snapshot_path is None:
+        snapshot_path = fetch_notebook_snapshot(args.stage / STAGED_NOTEBOOK)
+    report = write_report(args.baseline, args.stage, snapshot_path)
     print_report_result(args.stage, report)
 
 
@@ -654,7 +743,6 @@ def apply(args: argparse.Namespace) -> None:
             raise SystemExit(
                 "Notebook snapshot changed after comparison; run inspect again."
             )
-        snapshot_path = None
     else:
         if (
             not staged_snapshot.is_file()
@@ -663,15 +751,20 @@ def apply(args: argparse.Namespace) -> None:
             raise SystemExit(
                 "Notebook snapshot changed after comparison; run inspect again."
             )
-        snapshot_path = staged_snapshot
-    current_report = build_report(args.baseline, args.stage, snapshot_path)
-    blockers = unresolved_blockers(current_report, set(args.allow_id_change))
-    if blockers:
-        details = "\n".join(
-            f"- {blocker['code']}: {blocker.get('item_id') or blocker.get('id') or blocker.get('message')}"
-            for blocker in blockers
-        )
-        raise SystemExit(f"Promotion blocked:\n{details}")
+    with tempfile.TemporaryDirectory(prefix="aaic-notebook-") as tmp:
+        final_snapshot = args.notebook_snapshot
+        if final_snapshot is None:
+            final_snapshot = fetch_notebook_snapshot(Path(tmp) / STAGED_NOTEBOOK)
+        else:
+            notebook_references(final_snapshot)
+        current_report = build_report(args.baseline, args.stage, final_snapshot)
+        blockers = unresolved_blockers(current_report, set(args.allow_id_change))
+        if blockers:
+            details = "\n".join(
+                f"- {blocker['code']}: {blocker.get('item_id') or blocker.get('id') or blocker.get('message')}"
+                for blocker in blockers
+            )
+            raise SystemExit(f"Promotion blocked:\n{details}")
 
     sessions = load_json(args.stage / "sessions.json")
     people = load_json(args.stage / "people.json")
@@ -722,7 +815,11 @@ def parser() -> argparse.ArgumentParser:
         "--refresh-root", type=path, default=DEFAULT_REFRESH_ROOT
     )
     prepare_parser.add_argument("--stage", type=path)
-    prepare_parser.add_argument("--notebook-snapshot", type=path)
+    prepare_parser.add_argument(
+        "--notebook-snapshot",
+        type=path,
+        help="use a local snapshot instead of fetching through Access",
+    )
     prepare_parser.add_argument("--resume", action="store_true")
     prepare_parser.add_argument("--detail-workers", type=int, default=4)
     prepare_parser.add_argument("--detail-interval", type=float, default=0.20)
@@ -736,7 +833,11 @@ def parser() -> argparse.ArgumentParser:
     )
     inspect_parser.add_argument("stage", type=path)
     inspect_parser.add_argument("--baseline", type=path, default=DEFAULT_DATA)
-    inspect_parser.add_argument("--notebook-snapshot", type=path)
+    inspect_parser.add_argument(
+        "--notebook-snapshot",
+        type=path,
+        help="use a local snapshot instead of fetching through Access",
+    )
     inspect_parser.set_defaults(func=inspect)
 
     apply_parser = subcommands.add_parser(
@@ -744,6 +845,11 @@ def parser() -> argparse.ArgumentParser:
     )
     apply_parser.add_argument("stage", type=path)
     apply_parser.add_argument("--baseline", type=path, default=DEFAULT_DATA)
+    apply_parser.add_argument(
+        "--notebook-snapshot",
+        type=path,
+        help="use a local snapshot instead of fetching through Access",
+    )
     apply_parser.add_argument(
         "--allow-id-change", action="append", default=[], metavar="ID"
     )

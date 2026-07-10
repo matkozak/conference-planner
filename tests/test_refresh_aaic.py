@@ -4,13 +4,16 @@ import argparse
 import contextlib
 import io
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.refresh_aaic import (
     apply as apply_refresh,
     build_report,
+    fetch_notebook_snapshot,
     unresolved_blockers,
     require_staging,
     validate_data,
@@ -76,6 +79,34 @@ def write_snapshot(path: Path, item_id: str | None = None) -> None:
 
 
 class RefreshReportTest(unittest.TestCase):
+    def test_fetch_notebook_snapshot_uses_cloudflared_and_writes_valid_json(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            destination = Path(tmp) / "notebook.json"
+            payload = {
+                "program_version": "deadbeef",
+                "exported_at": "2026-07-10T12:00:00Z",
+                "notes": [],
+                "rsvps": [],
+            }
+            completed = subprocess.CompletedProcess(
+                args=[], returncode=0, stdout=json.dumps(payload)
+            )
+
+            with patch(
+                "scripts.refresh_aaic.subprocess.run", return_value=completed
+            ) as run:
+                result = fetch_notebook_snapshot(destination)
+
+            self.assertEqual(destination, result)
+            self.assertEqual(
+                payload, json.loads(destination.read_text(encoding="utf-8"))
+            )
+            command = run.call_args.args[0]
+            self.assertEqual(["mise", "exec", "--", "cloudflared"], command[:4])
+            self.assertIn("https://aaic2026.kozak.ch", command[6])
+
     def test_removed_referenced_id_blocks_and_suggests_remap(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -228,6 +259,7 @@ class RefreshReportTest(unittest.TestCase):
                     argparse.Namespace(
                         stage=new,
                         baseline=old,
+                        notebook_snapshot=snapshot,
                         allow_id_change=[],
                     )
                 )
@@ -265,6 +297,37 @@ class RefreshReportTest(unittest.TestCase):
                     argparse.Namespace(
                         stage=new,
                         baseline=old,
+                        notebook_snapshot=snapshot,
+                        allow_id_change=[],
+                    )
+                )
+
+    def test_apply_checks_a_fresh_snapshot_before_promotion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            old = root / "current"
+            new = root / "candidate"
+            inspected_snapshot = root / "inspected.json"
+            final_snapshot = root / "final.json"
+            write_data(
+                old,
+                [
+                    session(
+                        [presentation("P1", "Stable"), presentation("P2", "Removed")]
+                    )
+                ],
+            )
+            write_data(new, [session([presentation("P1", "Stable")])])
+            write_snapshot(inspected_snapshot)
+            write_snapshot(final_snapshot, "P2")
+            write_report(old, new, inspected_snapshot)
+
+            with self.assertRaisesRegex(SystemExit, "removed_id"):
+                apply_refresh(
+                    argparse.Namespace(
+                        stage=new,
+                        baseline=old,
+                        notebook_snapshot=final_snapshot,
                         allow_id_change=[],
                     )
                 )

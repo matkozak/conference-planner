@@ -1,3 +1,4 @@
 [tools]
+cloudflared = "latest"
 node = "lts"
 pnpm = "11"

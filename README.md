@@ -86,21 +86,20 @@ python3 -m scripts.refresh_aaic prepare \
   --stage .refresh/20260710T120000Z --resume
 ```
 
-A notebook snapshot is optional while ids are stable. If the initial report
-finds removed ids, download one while signed into the app and re-run `inspect`:
-
-```text
-https://aaic2026.kozak.ch/api/notebook/export.json
-```
+A fresh team-notebook snapshot is fetched through Cloudflare Access immediately
+before each inspection. On the first request after the Access session expires,
+`cloudflared` opens the normal browser login flow. To re-run the comparison:
 
 ```bash
-python3 -m scripts.refresh_aaic inspect .refresh/20260710T120000Z \
-  --notebook-snapshot ~/Downloads/aaic2026-notebook-2026-07-10.json
+python3 -m scripts.refresh_aaic inspect .refresh/20260710T120000Z
 ```
 
-Removed ids with no notes or RSVPs then become review-only changes. Referenced
-removals and possible id reuse still block promotion. The snapshot is also
-copied into ignored staging and verified again by `apply`.
+Removed ids with no notes or RSVPs become review-only changes. Referenced
+removals and possible id reuse still block promotion. The inspected snapshot is
+stored in ignored staging and verified again by `apply`.
+
+For offline recovery or testing, `--notebook-snapshot PATH` overrides the live
+fetch on `prepare`, `inspect`, or `apply`.
 
 Review the generated Markdown report. Any removed id, possible id reuse,
 or structural validation error blocks promotion. After review, run the printed
@@ -113,8 +112,9 @@ python3 -m scripts.refresh_aaic apply .refresh/20260710T120000Z
 A deliberate upstream id removal/reuse can be acknowledged individually with
 `--allow-id-change ID`; this acknowledges the impact but does not migrate user
 references. Validation errors cannot be overridden. Promotion rechecks both
-candidate and baseline hashes, replaces each source/derived file atomically,
-and regenerates daily CSV and SQLite exports. It never deploys the app.
+candidate and baseline hashes, fetches the notebook again immediately before
+the final blocker check, replaces each source/derived file atomically, and
+regenerates daily CSV and SQLite exports. It never deploys the app.
 
 Agenda detail records are fetched concurrently but conservatively. Controlled
 refreshes use 4 workers with a 0.20 second request-start interval; people use 4
