@@ -102,12 +102,17 @@ derived rows rather than as scraped EventPilot `subsession_ids`.
 - `agenda_items`: a view that unions sessions and presentations for schedule
   search.
 
+The SQLite export keeps `description_html`, which is the lossless description
+representation across the current dump. It intentionally omits duplicate
+`description_text` and full-row raw JSON; the committed JSON remains the source
+of truth.
+
 If `people.json` has not been fetched, the exporter creates placeholder `people`
 rows for every referenced id so joins and foreign keys remain valid.
 
 Other modeling choices to settle:
 
-- Whether to keep EventPilot's `subsession_ids` only in raw JSON, since
+- Whether to keep EventPilot's `subsession_ids` in `subsession_ids_json`, since
   `presentations.parent_session_id` is enough for normalized SQLite.
 - Whether poster board numbers should remain in `location` or also be split into
   a dedicated board field.

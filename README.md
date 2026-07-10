@@ -267,7 +267,9 @@ The SQLite export creates normalized `sessions`, `presentations`, `people`,
 `session_people`, and `presentation_people` tables, plus an `agenda_items` view
 that unions sessions and presentations for schedule search. If `people.json` is
 missing, the exporter still creates placeholder people rows from ids referenced
-by sessions and presentations.
+by sessions and presentations. It keeps the lossless HTML descriptions but does
+not duplicate plain-text descriptions or full source records; JSON remains the
+source of truth.
 
 ## Verification
 

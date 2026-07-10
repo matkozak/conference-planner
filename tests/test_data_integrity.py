@@ -155,6 +155,34 @@ class DataIntegrityTest(unittest.TestCase):
                 ).fetchall(),
             )
 
+            for table in ("sessions", "presentations", "people"):
+                columns = {
+                    row[1] for row in conn.execute(f"PRAGMA table_info({table})")
+                }
+                self.assertNotIn("raw_json", columns)
+            for table in ("sessions", "presentations"):
+                columns = {
+                    row[1] for row in conn.execute(f"PRAGMA table_info({table})")
+                }
+                self.assertIn("description_html", columns)
+                self.assertNotIn("description_text", columns)
+
+            agenda_columns = {
+                row[1] for row in conn.execute("PRAGMA table_info(agenda_items)")
+            }
+            self.assertIn("description_html", agenda_columns)
+
+    def test_html_descriptions_cover_all_plain_text_descriptions(self) -> None:
+        missing_html = []
+        for session in self.sessions:
+            items = [session, *session.get("presentations", [])]
+            missing_html.extend(
+                item.get("id")
+                for item in items
+                if item.get("description_text") and not item.get("description_html")
+            )
+        self.assertEqual([], missing_html)
+
     def count_rows(self, conn: sqlite3.Connection, table: str) -> int:
         return int(conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0])
 
