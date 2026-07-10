@@ -38,11 +38,11 @@ Verification from the completed run:
 
 Use `scripts/scrape_aaic.py`. It uses only Python standard library modules.
 
-Basic rerun:
+Resume an interrupted scrape into the same output directory:
 
 ```bash
 AAIC_COOKIE='miplanner0=...; xphrj=...; xphrj_web=...; web_cc5172e7=...' \
-  python3 scripts/scrape_aaic.py --outdir data/aaic_2026 --resume
+  python3 scripts/scrape_aaic.py --outdir .refresh/partial --resume --people
 ```
 
 Do not commit or hard-code the cookie. Copy it from a logged-in browser request
@@ -50,8 +50,8 @@ to `https://eppro01.ativ.me/web/api.php`.
 
 Useful options:
 
-- `--resume`: merge existing `data/aaic_2026/sessions.json` and skip detail pages
-  that already have a location or previous detail error.
+- `--resume`: merge an existing `sessions.json`, preserve completed session,
+  presentation, and person records, and retry missing or failed details.
 - `--no-details`: only fetch the parent session list, without detail pages.
 - `--date YYYY-MM-DD`: restrict to one date. Can be repeated.
 - `--max-sessions N`: limit a validation run.
@@ -64,6 +64,51 @@ Useful options:
   `speakers` table and write `people.json`.
 - `--people-workers 3`: concurrent speaker/person fetches.
 - `--people-interval 0.05`: minimum delay between speaker/person request starts.
+
+### Controlled program refresh
+
+Do not run a full refresh directly into `data/aaic_2026/`. The refresh helper
+scrapes into an ignored staging directory, validates it, compares every program
+item id with the current dump, and writes `report.md` + `report.json` without
+changing canonical data.
+
+The supplied notebook snapshot is copied into ignored staging so `apply` can
+verify it and recompute every blocker instead of trusting an editable report.
+
+First download a current user-data safety snapshot while signed into the app:
+
+```text
+https://aaic2026.kozak.ch/api/notebook/export.json
+```
+
+Then prepare a full candidate (the scraper reads `AAIC_COOKIE` as usual):
+
+```bash
+python3 -m scripts.refresh_aaic prepare \
+  --notebook-snapshot ~/Downloads/aaic2026-notebook-2026-07-10.json
+```
+
+If scraping is interrupted, resume the staging directory printed at startup:
+
+```bash
+python3 -m scripts.refresh_aaic prepare \
+  --stage .refresh/20260710T120000Z --resume \
+  --notebook-snapshot ~/Downloads/aaic2026-notebook-2026-07-10.json
+```
+
+Review the generated Markdown report. Any removed id, possible id reuse,
+structural validation error, or missing notebook snapshot blocks promotion.
+After review, promote an unchanged, blocker-free candidate:
+
+```bash
+python3 -m scripts.refresh_aaic apply .refresh/20260710T120000Z
+```
+
+A deliberate upstream id removal/reuse can be acknowledged individually with
+`--allow-id-change ID`; this acknowledges the impact but does not migrate user
+references. Validation errors cannot be overridden. Promotion rechecks both
+candidate and baseline hashes, replaces each source/derived file atomically,
+and regenerates daily CSV and SQLite exports. It never deploys the app.
 
 Agenda detail records are fetched concurrently but conservatively. The default
 of 3 workers with a 0.05 second request-start interval is intended to get a

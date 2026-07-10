@@ -5,6 +5,7 @@ export { NotebookDO } from "./notebook";
 import type { NotebookDO } from "./notebook";
 import { PROGRAM_PATH } from "../shared/generated/program-meta";
 import type { Program } from "../shared/types";
+import { notebookSnapshot } from "./snapshot";
 
 // The generated Env has NOTEBOOK: DurableObjectNamespace (untyped).
 // Augment it so stubs expose RPC methods.
@@ -46,6 +47,21 @@ app.get("/api/notes", async (c) => {
   const stub = c.env.NOTEBOOK.getByName("team");
   const notes = await stub.getAllNotes();
   return c.json(notes);
+});
+
+// --- Portable backup + refresh-safety input (the whole app is Access-protected) ---
+app.get("/api/notebook/export.json", async (c) => {
+  const stub = c.env.NOTEBOOK.getByName("team");
+  const [notes, rsvps, program] = await Promise.all([
+    stub.getAllNotes(),
+    stub.getAllRsvps(),
+    c.env.ASSETS.fetch(new URL(PROGRAM_PATH, c.req.url)).then(
+      (response) => response.json() as Promise<Program>,
+    ),
+  ]);
+  return c.json(notebookSnapshot(program.version, notes, rsvps), 200, {
+    "Content-Disposition": `attachment; filename="aaic2026-notebook-${new Date().toISOString().slice(0, 10)}.json"`,
+  });
 });
 
 // --- CSV export of all notes joined with program item titles ---

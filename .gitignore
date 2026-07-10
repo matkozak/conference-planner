@@ -19,6 +19,7 @@ autocomplete_*.txt
 
 # Small validation runs
 aaic_sample/
+.refresh/
 
 # App (app/)
 node_modules/

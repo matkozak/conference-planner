@@ -15,6 +15,14 @@ export interface Rsvp {
   author: string;
 }
 
+/** Downloadable safety snapshot used before a program refresh. */
+export interface NotebookSnapshot {
+  program_version: string;
+  exported_at: string;
+  notes: Note[];
+  rsvps: Rsvp[];
+}
+
 // --- Client → server messages ---
 
 export type ClientMsg =

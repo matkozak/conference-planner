@@ -573,9 +573,19 @@ def fetch_people(
     people: dict[str, dict[str, Any]] = {}
     people_path = outdir / "people.json"
     if resume and people_path.exists():
-        people = json.loads(people_path.read_text(encoding="utf-8"))
+        previous = json.loads(people_path.read_text(encoding="utf-8"))
+        people = {person_id: previous[person_id] for person_id in person_ids if person_id in previous}
 
-    jobs = [person_id for person_id in person_ids if not (resume and person_id in people)]
+    jobs = [
+        person_id
+        for person_id in person_ids
+        if not (
+            resume
+            and person_id in people
+            and people[person_id].get("full_name")
+            and not people[person_id].get("detail_error")
+        )
+    ]
     if not jobs:
         print(f"people: 0 rows to fetch ({len(people)} already present)", flush=True)
         return people
@@ -641,6 +651,52 @@ def looks_like_rate_limit(exc: BaseException) -> bool:
     return any(marker in str(exc).lower() for marker in ("too many", "rate", "throttle"))
 
 
+def agenda_item_complete(row: dict[str, Any]) -> bool:
+    """Whether a row came from the agenda table rather than a list/checkpoint stub."""
+    return bool(row.get("id") and "parent_id" in row and not row.get("detail_error"))
+
+
+def presentation_work(
+    rows: list[dict[str, Any]], resume: bool
+) -> tuple[dict[str, dict[str, Any]], list[tuple[int, str]]]:
+    """Return preserved presentation details and the detail jobs still needed."""
+    preserved: dict[str, dict[str, Any]] = {}
+    if resume:
+        for row in rows:
+            for presentation in row.get("presentations", []):
+                presentation_id = str(presentation.get("id") or "")
+                if presentation_id and agenda_item_complete(presentation):
+                    preserved[presentation_id] = presentation
+
+    presentation_ids: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        for presentation_id in map(str, row.get("subsession_ids", [])):
+            if presentation_id not in seen:
+                seen.add(presentation_id)
+                presentation_ids.append(presentation_id)
+
+    jobs = [
+        (idx, presentation_id)
+        for idx, presentation_id in enumerate(
+            (item_id for item_id in presentation_ids if item_id not in preserved), 1
+        )
+    ]
+    return preserved, jobs
+
+
+def attach_presentations(
+    rows: list[dict[str, Any]], presentations_by_id: dict[str, dict[str, Any]]
+) -> None:
+    """Attach every available presentation detail to its parent session."""
+    for row in rows:
+        row["presentations"] = [
+            presentations_by_id[presentation_id]
+            for presentation_id in map(str, row.get("subsession_ids", []))
+            if presentation_id in presentations_by_id
+        ]
+
+
 def fetch_details(
     rows: list[dict[str, Any]],
     cookie: str,
@@ -651,74 +707,76 @@ def fetch_details(
     save_every: int,
     log_every: int,
 ) -> None:
+    presentations_by_id, _ = presentation_work(rows, resume)
     detail_rows = [
         (idx, row)
         for idx, row in enumerate(rows, 1)
-        if not (resume and (row.get("starts_at") or row.get("detail_error")))
+        if not (resume and agenda_item_complete(row))
     ]
-    if not detail_rows:
-        print("detail: 0 rows to fetch", flush=True)
-        return
-
     workers = max(1, workers)
     pacer = RequestPacer(interval_s)
-    completed = 0
-    changed = 0
-    total = len(rows)
-    print(
-        f"detail: fetching {len(detail_rows)} rows with {workers} workers "
-        f"and {interval_s:.2f}s request-start interval",
-        flush=True,
-    )
+    if not detail_rows:
+        print("detail: 0 rows to fetch", flush=True)
+    else:
+        completed = 0
+        changed = 0
+        total = len(rows)
+        print(
+            f"detail: fetching {len(detail_rows)} rows with {workers} workers "
+            f"and {interval_s:.2f}s request-start interval",
+            flush=True,
+        )
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {
-            executor.submit(fetch_detail_paced, idx, total, row["id"], cookie, pacer): row
-            for idx, row in detail_rows
-        }
-        for future in concurrent.futures.as_completed(futures):
-            row = futures[future]
-            completed += 1
-            changed += 1
-            try:
-                idx, total, session_id, detail, elapsed_s = future.result()
-            except Exception as exc:  # Keep the dump useful even if one page changes.
-                row["detail_error"] = str(exc)
-                marker = " possible-rate-limit" if looks_like_rate_limit(exc) else ""
-                print(
-                    f"detail {completed}/{len(detail_rows)} error {row['id']}: "
-                    f"{type(exc).__name__}: {exc}{marker}",
-                    flush=True,
-                )
-            else:
-                row.clear()
-                row.update(detail)
-                print(
-                    f"detail {completed}/{len(detail_rows)} ok row {idx}/{total}: "
-                    f"{session_id} {elapsed_s:.2f}s "
-                    f"subsessions={len(detail.get('subsession_ids', []))} "
-                    f"location={detail.get('location', '')!r}",
-                    flush=True,
-                )
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(fetch_detail_paced, idx, total, row["id"], cookie, pacer): row
+                for idx, row in detail_rows
+            }
+            for future in concurrent.futures.as_completed(futures):
+                row = futures[future]
+                completed += 1
+                changed += 1
+                try:
+                    idx, total, session_id, detail, elapsed_s = future.result()
+                except Exception as exc:  # Keep the dump useful even if one page changes.
+                    row["detail_error"] = str(exc)
+                    marker = " possible-rate-limit" if looks_like_rate_limit(exc) else ""
+                    print(
+                        f"detail {completed}/{len(detail_rows)} error {row['id']}: "
+                        f"{type(exc).__name__}: {exc}{marker}",
+                        flush=True,
+                    )
+                else:
+                    row.clear()
+                    row.update(detail)
+                    print(
+                        f"detail {completed}/{len(detail_rows)} ok row {idx}/{total}: "
+                        f"{session_id} {elapsed_s:.2f}s "
+                        f"subsessions={len(detail.get('subsession_ids', []))} "
+                        f"location={detail.get('location', '')!r}",
+                        flush=True,
+                    )
 
-            if save_every > 0 and changed >= save_every:
-                write_outputs(rows, outdir)
-                changed = 0
+                if save_every > 0 and changed >= save_every:
+                    attach_presentations(rows, presentations_by_id)
+                    write_outputs(rows, outdir)
+                    changed = 0
 
-    if changed:
-        write_outputs(rows, outdir)
+        if changed:
+            attach_presentations(rows, presentations_by_id)
+            write_outputs(rows, outdir)
 
-    presentation_jobs = []
-    seen_presentation_ids = set()
-    for row in rows:
-        for presentation_id in row.get("subsession_ids", []):
-            if presentation_id in seen_presentation_ids:
-                continue
-            seen_presentation_ids.add(presentation_id)
-            presentation_jobs.append((len(presentation_jobs) + 1, presentation_id))
+    # Parent records may have been replaced above, so derive the final job list
+    # only after their current subsession ids are known.
+    _, presentation_jobs = presentation_work(rows, resume)
 
     if not presentation_jobs:
-        print("presentation details: 0 rows to fetch", flush=True)
+        attach_presentations(rows, presentations_by_id)
+        write_outputs(rows, outdir)
+        print(
+            f"presentation details: 0 rows to fetch ({len(presentations_by_id)} already present)",
+            flush=True,
+        )
         return
 
     print(
@@ -726,7 +784,6 @@ def fetch_details(
         f"and {interval_s:.2f}s request-start interval",
         flush=True,
     )
-    presentations_by_id: dict[str, dict[str, Any]] = {}
     changed = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {
@@ -769,20 +826,10 @@ def fetch_details(
                     )
 
             if save_every > 0 and changed % save_every == 0:
-                for row in rows:
-                    row["presentations"] = [
-                        presentations_by_id[presentation_id]
-                        for presentation_id in row.get("subsession_ids", [])
-                        if presentation_id in presentations_by_id
-                    ]
+                attach_presentations(rows, presentations_by_id)
                 write_outputs(rows, outdir)
 
-    for row in rows:
-        row["presentations"] = [
-            presentations_by_id[presentation_id]
-            for presentation_id in row.get("subsession_ids", [])
-            if presentation_id in presentations_by_id
-        ]
+    attach_presentations(rows, presentations_by_id)
     write_outputs(rows, outdir)
 
 
