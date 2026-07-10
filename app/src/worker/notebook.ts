@@ -72,7 +72,11 @@ export class NotebookDO extends DurableObject<Env> {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
     }
-    const author = request.headers.get("X-User-Email") ?? "anonymous";
+    const author = request.headers.get("X-User-Email");
+    if (!author) {
+      // The Worker always sets this after auth; absence is a caller bug.
+      return new Response("Missing X-User-Email", { status: 403 });
+    }
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
     this.ctx.acceptWebSocket(server);
@@ -92,11 +96,14 @@ export class NotebookDO extends DurableObject<Env> {
     message: string | ArrayBuffer,
   ): Promise<void> {
     if (typeof message !== "string") return;
-    const { author } = (ws.deserializeAttachment() ?? {
-      author: "anonymous",
-    }) as {
-      author: string;
-    };
+    const attachment = ws.deserializeAttachment() as { author?: string } | null;
+    if (!attachment?.author) {
+      // Post-auth an identity can never legitimately be absent; close instead
+      // of inventing an "anonymous" author that would confuse ownership checks.
+      ws.close(1011, "Missing identity");
+      return;
+    }
+    const author = attachment.author;
     let parsed: ClientMsg;
     try {
       parsed = JSON.parse(message) as ClientMsg;

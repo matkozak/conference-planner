@@ -28,22 +28,25 @@ async function token({
   issuer = TEAM_DOMAIN,
   audience = AUDIENCE,
   expiresAt = Math.floor(Date.now() / 1000) + 300,
+  notBefore,
   signingKey = privateKey,
 }: {
   email?: string | null;
   issuer?: string;
   audience?: string;
   expiresAt?: number;
+  notBefore?: number;
   signingKey?: CryptoKey;
 } = {}): Promise<string> {
   const claims = email === null ? {} : { email };
-  return new SignJWT(claims)
+  const jwt = new SignJWT(claims)
     .setProtectedHeader({ alg: "RS256", kid: "test" })
     .setIssuer(issuer)
     .setAudience(audience)
     .setIssuedAt()
-    .setExpirationTime(expiresAt)
-    .sign(signingKey);
+    .setExpirationTime(expiresAt);
+  if (notBefore !== undefined) jwt.setNotBefore(notBefore);
+  return jwt.sign(signingKey);
 }
 
 describe("verifyAccessJwt", () => {
@@ -66,12 +69,39 @@ describe("verifyAccessJwt", () => {
   it("rejects an expired token", async () => {
     await expect(
       verifyAccessJwt(
-        await token({ expiresAt: Math.floor(Date.now() / 1000) - 1 }),
+        // Beyond the 5s clockTolerance window
+        await token({ expiresAt: Math.floor(Date.now() / 1000) - 60 }),
         TEAM_DOMAIN,
         AUDIENCE,
         getKey,
       ),
     ).rejects.toThrow();
+  });
+
+  it("tolerates a trailing slash on the team domain binding", async () => {
+    await expect(
+      verifyAccessJwt(await token(), `${TEAM_DOMAIN}/`, AUDIENCE, getKey),
+    ).resolves.toBe(EMAIL);
+  });
+
+  it("tolerates small clock skew on a just-minted token", async () => {
+    await expect(
+      verifyAccessJwt(
+        await token({ notBefore: Math.floor(Date.now() / 1000) + 3 }),
+        TEAM_DOMAIN,
+        AUDIENCE,
+        getKey,
+      ),
+    ).resolves.toBe(EMAIL);
+  });
+
+  // A falsy audience/issuer makes jose skip that claim check entirely, so
+  // missing bindings must hard-fail instead of silently widening acceptance.
+  it.each([
+    ["empty audience", () => verifyAccessJwt("x", TEAM_DOMAIN, "", getKey)],
+    ["empty team domain", () => verifyAccessJwt("x", "", AUDIENCE, getKey)],
+  ] as const)("rejects verification with an %s binding", async (_, verify) => {
+    await expect(verify()).rejects.toThrow(TypeError);
   });
 
   it("rejects a token without an email", async () => {

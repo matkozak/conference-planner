@@ -1,34 +1,49 @@
 import type { MiddlewareHandler } from "hono";
-import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
+import {
+  createRemoteJWKSet,
+  errors,
+  jwtVerify,
+  type JWTVerifyGetKey,
+} from "jose";
 
 export type AppEnv = {
   Bindings: Env;
   Variables: { userEmail: string };
 };
 
-const jwksByTeamDomain = new Map<string, JWTVerifyGetKey>();
+/** One team domain per deployment, so one cached JWKS (jose refreshes rotated keys). */
+let jwks: JWTVerifyGetKey | undefined;
 
-/** Reuses jose's in-memory key cache while still refreshing rotated keys. */
 function remoteJwks(teamDomain: string): JWTVerifyGetKey {
-  let jwks = jwksByTeamDomain.get(teamDomain);
-  if (!jwks) {
-    jwks = createRemoteJWKSet(new URL(`${teamDomain}/cdn-cgi/access/certs`));
-    jwksByTeamDomain.set(teamDomain, jwks);
-  }
+  jwks ??= createRemoteJWKSet(new URL("/cdn-cgi/access/certs", teamDomain));
   return jwks;
 }
 
-/** Validates an Access application token and returns its authoritative email. */
+/**
+ * Validates an Access application token and returns its authoritative email.
+ * Tokens without an email claim are rejected — that includes Access service
+ * tokens (they authenticate as common_name); every caller of this app is a
+ * person with an identity-provider login.
+ */
 export async function verifyAccessJwt(
   token: string,
   teamDomain: string,
   audience: string,
-  getKey: JWTVerifyGetKey = remoteJwks(teamDomain),
+  getKey?: JWTVerifyGetKey,
 ): Promise<string> {
-  const { payload } = await jwtVerify(token, getKey, {
+  // jose skips any claim check whose option is falsy, so a missing/empty
+  // binding would silently accept tokens minted for other Access apps.
+  // TypeError lands in the isJwksOutage branch: misconfiguration is a 503.
+  if (!teamDomain || !audience) {
+    throw new TypeError("TEAM_DOMAIN and POLICY_AUD must be non-empty");
+  }
+  // Access mints `iss` without a trailing slash; tolerate one in the binding.
+  const issuer = teamDomain.replace(/\/+$/, "");
+  const { payload } = await jwtVerify(token, getKey ?? remoteJwks(issuer), {
     algorithms: ["RS256"],
-    issuer: teamDomain,
+    issuer,
     audience,
+    clockTolerance: 5, // seconds — Access sets nbf, and clocks can skew
   });
 
   if (typeof payload.email !== "string" || payload.email.trim() === "") {
@@ -37,19 +52,26 @@ export async function verifyAccessJwt(
   return payload.email;
 }
 
+/** The JWKS was unreachable or unusable — our outage, not the caller's token. */
+function isJwksOutage(error: unknown): boolean {
+  return (
+    error instanceof TypeError || // fetch network failure or missing bindings
+    error instanceof errors.JWKSTimeout ||
+    error instanceof errors.JWKSInvalid ||
+    // jose throws a bare JOSEError for a non-200 JWKS response
+    (error instanceof errors.JOSEError &&
+      error.constructor === errors.JOSEError)
+  );
+}
+
 /** Authenticates API requests; local Vite development deliberately stays anonymous. */
 export const accessAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (import.meta.env.DEV) {
+  // DEV is a Vite build-time flag: false under `vite build` (the deploy path),
+  // undefined outside Vite entirely — both fail closed into full validation.
+  if (import.meta.env?.DEV) {
     c.set("userEmail", "anonymous");
     await next();
     return;
-  }
-
-  if (!c.env.TEAM_DOMAIN || !c.env.POLICY_AUD) {
-    console.error(
-      JSON.stringify({ message: "Cloudflare Access bindings are missing" }),
-    );
-    return c.text("Forbidden", 403);
   }
 
   const token = c.req.header("Cf-Access-Jwt-Assertion");
@@ -61,12 +83,12 @@ export const accessAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
       await verifyAccessJwt(token, c.env.TEAM_DOMAIN, c.env.POLICY_AUD),
     );
   } catch (error) {
-    console.warn(
-      JSON.stringify({
-        message: "Cloudflare Access JWT rejected",
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-    );
+    const reason = error instanceof Error ? error.message : String(error);
+    if (isJwksOutage(error)) {
+      console.error("Access JWKS unavailable:", reason);
+      return c.text("Service Unavailable", 503);
+    }
+    console.warn("Access JWT rejected:", reason);
     return c.text("Forbidden", 403);
   }
 

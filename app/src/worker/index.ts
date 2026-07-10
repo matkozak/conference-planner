@@ -22,7 +22,9 @@ declare global {
  */
 const app = new Hono<AppEnv>();
 
-app.use("/api/*", accessAuth);
+// Auth by default on every worker-served path (today only /api/* reaches the
+// Worker, per run_worker_first) so a future route can't ship unauthenticated.
+app.use("*", accessAuth);
 
 app.get("/api/health", (c) => c.json({ ok: true, user: c.get("userEmail") }));
 
