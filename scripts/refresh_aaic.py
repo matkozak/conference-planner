@@ -407,23 +407,18 @@ def build_report(
     blockers: list[dict[str, Any]] = [
         {"code": "validation_error", "message": error} for error in validation_errors
     ]
-    if snapshot_path is None:
-        blockers.append(
-            {
-                "code": "notebook_snapshot_missing",
-                "message": "Supply a current /api/notebook/export.json snapshot before promotion.",
-            }
-        )
     for item_id in removed_ids:
-        blockers.append(
-            {
-                "code": "removed_id",
-                "item_id": item_id,
-                "kind": old_items[item_id]["kind"],
-                "title": old_items[item_id]["title"],
-                "references": references.get(item_id, {"notes": 0, "rsvps": 0}),
-            }
-        )
+        item_references = references.get(item_id, {"notes": 0, "rsvps": 0})
+        if snapshot_path is None or sum(item_references.values()) > 0:
+            blockers.append(
+                {
+                    "code": "removed_id",
+                    "item_id": item_id,
+                    "kind": old_items[item_id]["kind"],
+                    "title": old_items[item_id]["title"],
+                    "references": item_references,
+                }
+            )
     for item in reused:
         blockers.append({"code": "possible_id_reuse", **item})
 
@@ -574,7 +569,8 @@ def print_report_result(candidate_dir: Path, report: dict[str, Any]) -> None:
         f"Report: {candidate_dir / REPORT_MD}\n"
         f"IDs: {summary['stable_ids']} stable, {summary['added_ids']} added, "
         f"{summary['removed_ids']} removed, {summary['possible_id_reuse']} possible reuse\n"
-        f"Promotion blockers: {len(report['blockers'])}"
+        f"Promotion blockers: {len(report['blockers'])}\n"
+        f"After review: python3 -m scripts.refresh_aaic apply {candidate_dir}"
     )
 
 
@@ -628,12 +624,10 @@ def inspect(args: argparse.Namespace) -> None:
 
 
 def unresolved_blockers(
-    report: dict[str, Any], allowed_ids: set[str], allow_missing_snapshot: bool
+    report: dict[str, Any], allowed_ids: set[str]
 ) -> list[dict[str, Any]]:
     unresolved = []
     for blocker in report["blockers"]:
-        if blocker["code"] == "notebook_snapshot_missing" and allow_missing_snapshot:
-            continue
         if blocker["code"] in {"removed_id", "possible_id_reuse"}:
             if blocker.get("item_id", blocker.get("id")) in allowed_ids:
                 continue
@@ -671,9 +665,7 @@ def apply(args: argparse.Namespace) -> None:
             )
         snapshot_path = staged_snapshot
     current_report = build_report(args.baseline, args.stage, snapshot_path)
-    blockers = unresolved_blockers(
-        current_report, set(args.allow_id_change), args.allow_missing_snapshot
-    )
+    blockers = unresolved_blockers(current_report, set(args.allow_id_change))
     if blockers:
         details = "\n".join(
             f"- {blocker['code']}: {blocker.get('item_id') or blocker.get('id') or blocker.get('message')}"
@@ -732,9 +724,9 @@ def parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("--stage", type=path)
     prepare_parser.add_argument("--notebook-snapshot", type=path)
     prepare_parser.add_argument("--resume", action="store_true")
-    prepare_parser.add_argument("--detail-workers", type=int, default=3)
-    prepare_parser.add_argument("--detail-interval", type=float, default=0.25)
-    prepare_parser.add_argument("--people-workers", type=int, default=3)
+    prepare_parser.add_argument("--detail-workers", type=int, default=4)
+    prepare_parser.add_argument("--detail-interval", type=float, default=0.20)
+    prepare_parser.add_argument("--people-workers", type=int, default=4)
     prepare_parser.add_argument("--people-interval", type=float, default=0.05)
     prepare_parser.add_argument("--save-every", type=int, default=100)
     prepare_parser.set_defaults(func=prepare)
@@ -755,7 +747,6 @@ def parser() -> argparse.ArgumentParser:
     apply_parser.add_argument(
         "--allow-id-change", action="append", default=[], metavar="ID"
     )
-    apply_parser.add_argument("--allow-missing-snapshot", action="store_true")
     apply_parser.set_defaults(func=apply)
     return result
 

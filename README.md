@@ -72,33 +72,39 @@ scrapes into an ignored staging directory, validates it, compares every program
 item id with the current dump, and writes `report.md` + `report.json` without
 changing canonical data.
 
-The supplied notebook snapshot is copied into ignored staging so `apply` can
-verify it and recompute every blocker instead of trusting an editable report.
+Prepare a full candidate; the scraper reads `AAIC_COOKIE` from mise:
 
-First download a current user-data safety snapshot while signed into the app:
+```bash
+python3 -m scripts.refresh_aaic prepare
+```
+
+The command prints the staging directory and, when finished, the exact `apply`
+command. If scraping is interrupted, resume that directory:
+
+```bash
+python3 -m scripts.refresh_aaic prepare \
+  --stage .refresh/20260710T120000Z --resume
+```
+
+A notebook snapshot is optional while ids are stable. If the initial report
+finds removed ids, download one while signed into the app and re-run `inspect`:
 
 ```text
 https://aaic2026.kozak.ch/api/notebook/export.json
 ```
 
-Then prepare a full candidate (the scraper reads `AAIC_COOKIE` as usual):
-
 ```bash
-python3 -m scripts.refresh_aaic prepare \
+python3 -m scripts.refresh_aaic inspect .refresh/20260710T120000Z \
   --notebook-snapshot ~/Downloads/aaic2026-notebook-2026-07-10.json
 ```
 
-If scraping is interrupted, resume the staging directory printed at startup:
-
-```bash
-python3 -m scripts.refresh_aaic prepare \
-  --stage .refresh/20260710T120000Z --resume \
-  --notebook-snapshot ~/Downloads/aaic2026-notebook-2026-07-10.json
-```
+Removed ids with no notes or RSVPs then become review-only changes. Referenced
+removals and possible id reuse still block promotion. The snapshot is also
+copied into ignored staging and verified again by `apply`.
 
 Review the generated Markdown report. Any removed id, possible id reuse,
-structural validation error, or missing notebook snapshot blocks promotion.
-After review, promote an unchanged, blocker-free candidate:
+or structural validation error blocks promotion. After review, run the printed
+command to promote an unchanged, blocker-free candidate:
 
 ```bash
 python3 -m scripts.refresh_aaic apply .refresh/20260710T120000Z
@@ -110,11 +116,10 @@ references. Validation errors cannot be overridden. Promotion rechecks both
 candidate and baseline hashes, replaces each source/derived file atomically,
 and regenerates daily CSV and SQLite exports. It never deploys the app.
 
-Agenda detail records are fetched concurrently but conservatively. The default
-of 3 workers with a 0.05 second request-start interval is intended to get a
-basic speed-up from network overlap without hammering a logged-in EventPilot PHP
-session. Detail logs include per-record timing and mark likely rate-limit
-errors.
+Agenda detail records are fetched concurrently but conservatively. Controlled
+refreshes use 4 workers with a 0.20 second request-start interval; people use 4
+workers with a 0.05 second interval. Detail logs include per-record timing and
+mark likely rate-limit errors.
 
 Example smoke test:
 

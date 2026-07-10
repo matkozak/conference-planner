@@ -104,6 +104,47 @@ class RefreshReportTest(unittest.TestCase):
                 "removed_id", {blocker["code"] for blocker in report["blockers"]}
             )
 
+    def test_snapshot_clears_unreferenced_removed_id_blocker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            old = root / "old"
+            new = root / "new"
+            snapshot = root / "notebook.json"
+            write_data(
+                old,
+                [
+                    session(
+                        [presentation("P1", "Stable"), presentation("P2", "Removed")]
+                    )
+                ],
+            )
+            write_data(new, [session([presentation("P1", "Stable")])])
+            write_snapshot(snapshot)
+
+            report = build_report(old, new, snapshot)
+
+            self.assertEqual([], report["blockers"])
+            self.assertEqual("P2", report["removed"][0]["id"])
+
+    def test_removed_id_blocks_when_snapshot_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            old = root / "old"
+            new = root / "new"
+            write_data(
+                old,
+                [
+                    session(
+                        [presentation("P1", "Stable"), presentation("P2", "Removed")]
+                    )
+                ],
+            )
+            write_data(new, [session([presentation("P1", "Stable")])])
+
+            report = build_report(old, new)
+
+            self.assertEqual("removed_id", report["blockers"][0]["code"])
+
     def test_same_id_with_unrelated_identity_is_possible_reuse(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -121,12 +162,18 @@ class RefreshReportTest(unittest.TestCase):
             self.assertEqual(1, report["summary"]["possible_id_reuse"])
             self.assertEqual("S1", report["possible_id_reuse"][0]["id"])
 
-    def test_missing_snapshot_blocks_unless_explicitly_allowed(self) -> None:
-        blockers = [{"code": "notebook_snapshot_missing", "message": "missing"}]
-        report = {"blockers": blockers}
+    def test_missing_snapshot_warns_but_does_not_block(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            old = root / "old"
+            new = root / "new"
+            write_data(old, [session([])])
+            write_data(new, [session([])])
 
-        self.assertEqual(blockers, unresolved_blockers(report, set(), False))
-        self.assertEqual([], unresolved_blockers(report, set(), True))
+            report = build_report(old, new)
+
+            self.assertEqual([], unresolved_blockers(report, set()))
+            self.assertIn("user-data impact is unknown", report["warnings"][0])
 
     def test_canonical_directory_cannot_be_used_as_staging(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -182,7 +229,6 @@ class RefreshReportTest(unittest.TestCase):
                         stage=new,
                         baseline=old,
                         allow_id_change=[],
-                        allow_missing_snapshot=False,
                     )
                 )
 
@@ -220,7 +266,6 @@ class RefreshReportTest(unittest.TestCase):
                         stage=new,
                         baseline=old,
                         allow_id_change=[],
-                        allow_missing_snapshot=False,
                     )
                 )
 
