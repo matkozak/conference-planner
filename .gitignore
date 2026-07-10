@@ -3,6 +3,7 @@ __pycache__/
 
 # Local auth/session material
 cookies*.txt
+mise.local.toml
 
 # Endpoint discovery scratch files
 EPFormat*.js
