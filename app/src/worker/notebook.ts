@@ -21,8 +21,8 @@ type RsvpRow = Record<string, SqlStorageValue> & {
  * The team's shared notebook. One instance ("team") holds every note from
  * every user. SQLite for storage, WebSocket hibernation for live sync.
  *
- * Each WebSocket carries the user's email as an attachment (set once at
- * accept time from the Cf-Access-Authenticated-User-Email header).
+ * Each WebSocket carries the user's email as an attachment, set once at accept
+ * time from the Access JWT validated by the outer Worker.
  */
 export class NotebookDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {

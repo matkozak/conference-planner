@@ -32,9 +32,11 @@ The Access-protected custom domain is intended to be the only production
 ingress. `workers.dev` and preview URLs are disabled in `wrangler.jsonc` so they
 cannot bypass Access.
 
-The Worker currently uses `Cf-Access-Authenticated-User-Email` as identity and
-falls back to `anonymous` in local development. It does not yet validate the
-Access JWT; that is the first roadmap item below.
+The Worker validates the `Cf-Access-Jwt-Assertion` signature, issuer, and
+application audience before taking identity from its email claim. Validation
+uses Cloudflare's rotating JWKS through the zero-transitive-dependency `jose`
+package; the team domain and audience are non-secret Worker bindings. Local
+development deliberately falls back to `anonymous`.
 
 ### Static program data
 
@@ -73,21 +75,6 @@ hash routes; it does not duplicate server-domain types or introduce a second
 state framework.
 
 ## Roadmap
-
-### Validate the Cloudflare Access JWT
-
-Before treating the Access email as authoritative, validate the
-`Cf-Access-Jwt-Assertion` signature, issuer, and application audience, then take
-identity from the validated claims. Cloudflare currently recommends this even
-when Access is directly in front of a Worker.
-
-Implementation should keep the single-ingress setup and local-development
-fallback simple. If a JWT library is added, document and justify the dependency
-and configure the team domain and Access audience as Worker bindings rather than
-hard-coded values.
-
-Reference:
-[Cloudflare Access JWT validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/).
 
 ### Resolve the incomplete REST fallback
 

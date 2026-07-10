@@ -8,6 +8,11 @@
   "workers_dev": false,
   "preview_urls": false,
   "routes": [{ "pattern": "aaic2026.kozak.ch", "custom_domain": true }],
+  // Public Access application identifiers used to validate incoming JWTs.
+  "vars": {
+    "TEAM_DOMAIN": "https://gippity.cloudflareaccess.com",
+    "POLICY_AUD": "fe062d59be5aa7fbb98d1257984e93ef00f522dbe8f33da2ecfb3c3615b9b83d",
+  },
   "assets": {
     // `directory` is intentionally absent: the Cloudflare Vite plugin points it
     // at the client build output automatically.

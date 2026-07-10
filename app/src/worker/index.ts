@@ -5,6 +5,7 @@ export { NotebookDO } from "./notebook";
 import type { NotebookDO } from "./notebook";
 import { PROGRAM_PATH } from "../shared/generated/program-meta";
 import type { Program } from "../shared/types";
+import { accessAuth, type AppEnv } from "./access";
 import { notebookSnapshot } from "./snapshot";
 
 // The generated Env has NOTEBOOK: DurableObjectNamespace (untyped).
@@ -19,16 +20,11 @@ declare global {
  * The Worker only handles /api/* (see run_worker_first in wrangler.jsonc);
  * everything else is served from static assets, with SPA fallback.
  */
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<AppEnv>();
 
-/** Extracts the verified Access email (or "anonymous" in local dev). */
-function userEmail(c: {
-  req: { header(name: string): string | undefined };
-}): string {
-  return c.req.header("Cf-Access-Authenticated-User-Email") ?? "anonymous";
-}
+app.use("/api/*", accessAuth);
 
-app.get("/api/health", (c) => c.json({ ok: true, user: userEmail(c) }));
+app.get("/api/health", (c) => c.json({ ok: true, user: c.get("userEmail") }));
 
 // --- Notebook WebSocket upgrade ---
 app.get("/api/ws", (c) => {
@@ -38,7 +34,7 @@ app.get("/api/ws", (c) => {
   const stub = c.env.NOTEBOOK.getByName("team");
   // Forward the request with the user email attached so the DO can read it.
   const headers = new Headers(c.req.raw.headers);
-  headers.set("X-User-Email", userEmail(c));
+  headers.set("X-User-Email", c.get("userEmail"));
   return stub.fetch(new Request(c.req.url, { headers }));
 });
 
