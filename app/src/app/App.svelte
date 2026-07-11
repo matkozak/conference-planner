@@ -125,7 +125,7 @@
         class="day-tab"
         class:active={ui.route.view === "me"}
         aria-label="My stuff"
-        onclick={gotoMe}
+        onclick={() => gotoMe()}
       >
         <svg
           class="tab-icon"
@@ -145,7 +145,7 @@
         class="day-tab"
         class:active={ui.route.view === "team"}
         aria-label="Team plans"
-        onclick={gotoTeam}
+        onclick={() => gotoTeam()}
       >
         <svg
           class="tab-icon"

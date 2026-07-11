@@ -15,8 +15,11 @@ export type Route =
   | { view: "session"; id: string; talk?: string }
   | { view: "posters" }
   | { view: "search" }
-  | { view: "team" }
-  | { view: "me" };
+  | { view: "team"; tab: PlanTab }
+  | { view: "me"; tab: PlanTab };
+
+/** Segments within the Me and Team views. */
+export type PlanTab = "talks" | "posters" | "notes";
 
 export const ui = $state({
   program: null as Program | null,
@@ -95,12 +98,17 @@ function parseHash(): Route {
   }
   if (parts[0] === "posters") return { view: "posters" };
   if (parts[0] === "search") return { view: "search" };
-  if (parts[0] === "team") return { view: "team" };
-  if (parts[0] === "me") return { view: "me" };
+  if (parts[0] === "team") return { view: "team", tab: planTab(parts[1]) };
+  if (parts[0] === "me") return { view: "me", tab: planTab(parts[1]) };
   if (parts[0] === "day" && parts[1] && sessionsByDay.has(parts[1])) {
     return { view: "day", day: parts[1] };
   }
   return { view: "day", day: initialDay() };
+}
+
+/** Hash segment → plan tab, defaulting to the primary Talks segment. */
+function planTab(part: string | undefined): PlanTab {
+  return part === "posters" || part === "notes" ? part : "talks";
 }
 
 export function gotoDay(day: string): void {
@@ -120,12 +128,12 @@ export function gotoSearch(): void {
   location.hash = "#/search";
 }
 
-export function gotoTeam(): void {
-  location.hash = "#/team";
+export function gotoTeam(tab: PlanTab = "talks"): void {
+  location.hash = tab === "talks" ? "#/team" : `#/team/${tab}`;
 }
 
-export function gotoMe(): void {
-  location.hash = "#/me";
+export function gotoMe(tab: PlanTab = "talks"): void {
+  location.hash = tab === "talks" ? "#/me" : `#/me/${tab}`;
 }
 
 export function gotoHome(): void {

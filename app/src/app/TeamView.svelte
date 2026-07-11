@@ -1,49 +1,47 @@
 <script lang="ts">
-  import type { SearchEntry } from "./store.svelte";
-  import { itemsById } from "./store.svelte";
-  import { rsvps } from "./notebook.svelte";
-  import { dayLabel } from "./format";
-  import PlanRow from "./PlanRow.svelte";
+  import { notes } from "./notebook.svelte";
+  import NoteFeed from "./NoteFeed.svelte";
+  import PlanList from "./PlanList.svelte";
+  import { planCount, planDays } from "./plans";
+  import PlanTabs from "./PlanTabs.svelte";
+  import { gotoTeam, ui } from "./store.svelte";
   import TzNote from "./TzNote.svelte";
 
-  interface TeamItem {
-    entry: SearchEntry;
-    startsAt: string;
-    authors: string[];
-  }
+  const tab = $derived(ui.route?.view === "team" ? ui.route.tab : "talks");
 
-  /** Every RSVP'd item resolved against the program, grouped by day. */
-  const teamDays = $derived.by(() => {
-    const byDay = new Map<string, TeamItem[]>();
-    for (const [itemId, authors] of rsvps) {
-      const entry = itemsById.get(itemId);
-      if (!entry) continue;
-      const startsAt = entry.talk?.starts_at ?? entry.session.starts_at ?? "";
-      const list = byDay.get(entry.session.date) ?? [];
-      list.push({ entry, startsAt, authors });
-      byDay.set(entry.session.date, list);
-    }
-    for (const list of byDay.values()) {
-      list.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-    }
-    return new Map([...byDay].sort(([a], [b]) => a.localeCompare(b)));
-  });
+  /** Everyone's RSVPs resolved against the program, talks vs posters. */
+  const teamPlans = $derived(planDays());
+
+  const teamNotes = $derived(
+    [...notes.byId.values()].sort((a, b) =>
+      b.created_at.localeCompare(a.created_at),
+    ),
+  );
 </script>
 
 <main class="team">
   <TzNote />
-  <h2>Team plans</h2>
-  {#if teamDays.size === 0}
-    <p class="empty">
-      Nothing yet — everyone's “I'll be there” picks show up here.
-    </p>
+  <PlanTabs
+    active={tab}
+    posterCount={planCount(teamPlans.posters)}
+    noteCount={teamNotes.length}
+    onSelect={gotoTeam}
+  />
+  {#if tab === "talks"}
+    <PlanList
+      days={teamPlans.talks}
+      empty="Nothing yet — everyone's “I'll be there” picks show up here."
+      showAuthors
+    />
+  {:else if tab === "posters"}
+    <PlanList
+      days={teamPlans.posters}
+      empty="No poster plans from the team yet."
+      showAuthors
+    />
+  {:else}
+    <NoteFeed notes={teamNotes} empty="No notes from the team yet." />
   {/if}
-  {#each [...teamDays] as [day, items] (day)}
-    <h3>{dayLabel(day)}</h3>
-    {#each items as { entry, startsAt, authors } (entry.talk?.id ?? entry.session.id)}
-      <PlanRow {entry} {startsAt} {authors} />
-    {/each}
-  {/each}
 </main>
 
 <style>
@@ -51,20 +49,5 @@
     padding: 0.75rem;
     max-width: 44rem;
     margin: 0 auto;
-  }
-
-  h2 {
-    margin: 0.25rem 0 0.5rem;
-  }
-
-  h3 {
-    margin: 0.75rem 0 0.375rem;
-    font-size: 0.875rem;
-    color: var(--muted);
-  }
-
-  .empty {
-    color: var(--muted);
-    font-size: 0.9375rem;
   }
 </style>
