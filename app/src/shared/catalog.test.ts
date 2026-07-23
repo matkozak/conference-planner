@@ -1,29 +1,79 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CONFERENCE_CATALOG,
   conferenceForLocation,
   conferenceStatus,
+  parseConferenceCatalog,
+  programKey,
+  programPath,
+  type ConferenceCatalog,
 } from "./catalog";
 
-const aaic = CONFERENCE_CATALOG[0]!;
+const hash = "a".repeat(64);
+const catalog: ConferenceCatalog = {
+  schema_version: 1,
+  conferences: [
+    {
+      id: "aaic-2026",
+      name: "Alzheimer's Association International Conference 2026",
+      short_name: "AAIC 2026",
+      starts_on: "2026-07-10",
+      ends_on: "2026-07-16",
+      timezone: "Europe/London",
+      program_hash: hash,
+    },
+  ],
+};
+const aaic = catalog.conferences[0]!;
+
+describe("conference catalog", () => {
+  it("parses a valid finite catalog", () => {
+    expect(parseConferenceCatalog(catalog)).toEqual(catalog);
+  });
+
+  it("rejects duplicate ids and malformed hashes", () => {
+    expect(() =>
+      parseConferenceCatalog({
+        ...catalog,
+        conferences: [aaic, aaic],
+      }),
+    ).toThrow("duplicates aaic-2026");
+    expect(() =>
+      parseConferenceCatalog({
+        ...catalog,
+        conferences: [{ ...aaic, program_hash: "short" }],
+      }),
+    ).toThrow("program_hash is invalid");
+  });
+
+  it("derives matching R2 and authenticated API paths", () => {
+    expect(programKey(aaic.id, hash)).toBe(`programs/aaic-2026/${hash}.json`);
+    expect(programPath(aaic)).toBe(`/api/programs/aaic-2026/${hash}.json`);
+  });
+});
 
 describe("conference catalog routing", () => {
   it("resolves only finite top-level conference slugs", () => {
-    expect(conferenceForLocation("/aaic-2026/", "conferences.kozak.ch")).toBe(
-      aaic,
-    );
     expect(
-      conferenceForLocation("/made-up/", "conferences.kozak.ch"),
+      conferenceForLocation(catalog, "/aaic-2026/", "conferences.kozak.ch"),
+    ).toBe(aaic);
+    expect(
+      conferenceForLocation(catalog, "/made-up/", "conferences.kozak.ch"),
     ).toBeUndefined();
     expect(
-      conferenceForLocation("/aaic-2026/extra", "conferences.kozak.ch"),
+      conferenceForLocation(
+        catalog,
+        "/aaic-2026/extra",
+        "conferences.kozak.ch",
+      ),
     ).toBeUndefined();
   });
 
   it("keeps the historical AAIC hostname rooted at AAIC", () => {
-    expect(conferenceForLocation("/", "aaic2026.kozak.ch")).toBe(aaic);
-    expect(conferenceForLocation("/", "conferences.kozak.ch")).toBeNull();
+    expect(conferenceForLocation(catalog, "/", "aaic2026.kozak.ch")).toBe(aaic);
+    expect(
+      conferenceForLocation(catalog, "/", "conferences.kozak.ch"),
+    ).toBeNull();
   });
 });
 

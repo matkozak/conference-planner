@@ -59,7 +59,7 @@
 {#if ui.error}
   <main class="center"><p>{ui.error}</p></main>
 {:else if ui.catalog}
-  <ConferenceList />
+  <ConferenceList conferences={ui.catalog} />
 {:else if !ui.program || !ui.route}
   <main class="center"><p>Loading the program…</p></main>
 {:else}

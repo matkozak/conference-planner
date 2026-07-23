@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { programContentHash } from "./build-program.ts";
+import { programContentHash } from "./publication.ts";
 import {
   adaptAaicProgram,
   type RawEventPilotItem,
@@ -37,11 +37,13 @@ describe("current AAIC program", () => {
 
   it("has a stable content hash outside the contract", () => {
     expect(program).not.toHaveProperty("version");
-    const hash = programContentHash(program);
+    const hash = programContentHash(JSON.stringify(program));
     const changed = structuredClone(program);
     changed.sessions[0]!.title += " (changed)";
-    expect(hash).toMatch(/^[0-9a-f]{8}$/);
-    expect(programContentHash(structuredClone(program))).toBe(hash);
-    expect(programContentHash(changed)).not.toBe(hash);
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(programContentHash(JSON.stringify(structuredClone(program)))).toBe(
+      hash,
+    );
+    expect(programContentHash(JSON.stringify(changed))).not.toBe(hash);
   });
 });

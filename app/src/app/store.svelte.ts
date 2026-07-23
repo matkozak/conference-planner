@@ -6,7 +6,12 @@
  */
 import UFuzzy from "@leeoniya/ufuzzy";
 
-import { conferenceForLocation } from "../shared/catalog";
+import {
+  conferenceForLocation,
+  parseConferenceCatalog,
+  programPath,
+  type ConferenceCatalogEntry,
+} from "../shared/catalog";
 import type {
   ConferenceProgram,
   Presentation,
@@ -27,7 +32,7 @@ export type Route =
 export type PlanTab = "talks" | "posters" | "notes";
 
 export const ui = $state({
-  catalog: false,
+  catalog: null as ConferenceCatalogEntry[] | null,
   program: null as ConferenceProgram | null,
   route: null as Route | null,
   error: "",
@@ -75,32 +80,39 @@ export function savedScroll(hash: string): number {
 
 /** Initialize either the conference catalog root or one conference app. */
 export async function init(): Promise<boolean> {
-  const conference = conferenceForLocation(
-    location.pathname,
-    location.hostname,
-  );
-  if (conference === null) {
-    ui.catalog = true;
-    document.title = "Conferences";
-    return false;
-  }
-  if (!conference) {
-    ui.error = "Conference not found.";
-    return false;
-  }
-
-  currentHash = location.hash;
-  window.addEventListener("hashchange", () => {
-    scrollPositions.set(currentHash, window.scrollY);
-    const previous = currentHash;
-    currentHash = location.hash;
-    const seenAt = backStack.lastIndexOf(currentHash);
-    if (seenAt >= 0) backStack.length = seenAt;
-    else if (previous && previous !== currentHash) backStack.push(previous);
-    ui.route = parseHash();
-  });
   try {
-    const res = await fetch(conference.program_path);
+    const catalogResponse = await fetch("/api/catalog");
+    if (!catalogResponse.ok) {
+      throw new Error(`catalog HTTP ${catalogResponse.status}`);
+    }
+    const catalog = parseConferenceCatalog(await catalogResponse.json());
+    const conference = conferenceForLocation(
+      catalog,
+      location.pathname,
+      location.hostname,
+    );
+    if (conference === null) {
+      ui.catalog = catalog.conferences;
+      document.title = "Conferences";
+      return false;
+    }
+    if (!conference) {
+      ui.error = "Conference not found.";
+      return false;
+    }
+
+    currentHash = location.hash;
+    window.addEventListener("hashchange", () => {
+      scrollPositions.set(currentHash, window.scrollY);
+      const previous = currentHash;
+      currentHash = location.hash;
+      const seenAt = backStack.lastIndexOf(currentHash);
+      if (seenAt >= 0) backStack.length = seenAt;
+      else if (previous && previous !== currentHash) backStack.push(previous);
+      ui.route = parseHash();
+    });
+
+    const res = await fetch(programPath(conference));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const program: ConferenceProgram = await res.json();
     if (program.conference.id !== conference.id) {
@@ -113,7 +125,7 @@ export async function init(): Promise<boolean> {
     ui.program = program;
     document.title = program.conference.short_name;
   } catch (err) {
-    ui.error = `Failed to load the program: ${err instanceof Error ? err.message : String(err)}`;
+    ui.error = `Failed to load conference data: ${err instanceof Error ? err.message : String(err)}`;
     return false;
   }
   ui.route = parseHash();

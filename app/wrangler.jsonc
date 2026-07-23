@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "aaic2026",
   "main": "src/worker/index.ts",
-  "compatibility_date": "2026-07-08",
+  "compatibility_date": "2026-07-23",
   // The Access-protected custom domain is the only way in: no workers.dev,
   // no preview URLs (they would bypass Cloudflare Access).
   "workers_dev": false,
@@ -26,5 +26,13 @@
   "durable_objects": {
     "bindings": [{ "name": "NOTEBOOK", "class_name": "NotebookDO" }],
   },
+  "r2_buckets": [
+    {
+      "binding": "PROGRAMS",
+      "bucket_name": "conference-programs",
+      // Local Worker code reads the real private catalog and programs.
+      "remote": true,
+    },
+  ],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["NotebookDO"] }],
 }

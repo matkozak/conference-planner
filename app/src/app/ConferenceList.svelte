@@ -1,12 +1,14 @@
 <script lang="ts">
   import {
-    CONFERENCE_CATALOG,
     conferenceStatus,
+    type ConferenceCatalogEntry,
     type ConferenceStatus,
   } from "../shared/catalog";
   import type { Conference } from "../shared/program";
   import { dayLabel, todayInTimeZone } from "./format";
   import { HOME_TIME_ZONE } from "./tz.svelte";
+
+  let { conferences }: { conferences: ConferenceCatalogEntry[] } = $props();
 
   const today = todayInTimeZone(HOME_TIME_ZONE);
   const statuses: { id: ConferenceStatus; title: string }[] = [
@@ -17,15 +19,15 @@
   const groups = Object.fromEntries(
     statuses.map(({ id }) => [
       id,
-      CONFERENCE_CATALOG.filter(
-        (conference) => conferenceStatus(conference, today) === id,
-      ).sort((a, b) =>
-        id === "past"
-          ? b.starts_on.localeCompare(a.starts_on)
-          : a.starts_on.localeCompare(b.starts_on),
-      ),
+      conferences
+        .filter((conference) => conferenceStatus(conference, today) === id)
+        .sort((a, b) =>
+          id === "past"
+            ? b.starts_on.localeCompare(a.starts_on)
+            : a.starts_on.localeCompare(b.starts_on),
+        ),
     ]),
-  ) as Record<ConferenceStatus, (typeof CONFERENCE_CATALOG)[number][]>;
+  ) as Record<ConferenceStatus, ConferenceCatalogEntry[]>;
 
   function dateRange(conference: Conference): string {
     const start = dayLabel(conference.starts_on);

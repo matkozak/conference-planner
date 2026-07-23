@@ -4,3 +4,4 @@ public/program.*.json
 src/shared/generated/
 dist/
 .wrangler/
+.programs/

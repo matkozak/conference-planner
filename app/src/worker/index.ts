@@ -4,8 +4,13 @@ import { Hono } from "hono";
 export { NotebookDO } from "./notebook";
 import type { NotebookDO } from "./notebook";
 import { conferenceById } from "../shared/catalog";
-import type { ConferenceProgram } from "../shared/program";
 import { accessAuth, type AppEnv } from "./access";
+import {
+  catalogResponse,
+  loadCatalog,
+  loadCurrentProgram,
+  programResponse,
+} from "./programs";
 import { notebookSnapshot } from "./snapshot";
 
 // The generated Env has NOTEBOOK: DurableObjectNamespace (untyped).
@@ -28,9 +33,24 @@ app.use("*", accessAuth);
 
 app.get("/api/health", (c) => c.json({ ok: true, user: c.get("userEmail") }));
 
+// --- Runtime publication catalog + immutable program objects ---
+app.get("/api/catalog", (c) => catalogResponse(c.env.PROGRAMS, c.req.raw));
+
+app.get("/api/programs/:conferenceId/:hash", (c) => {
+  const filename = c.req.param("hash");
+  if (!filename.endsWith(".json")) return c.notFound();
+  return programResponse(
+    c.env.PROGRAMS,
+    c.req.param("conferenceId"),
+    filename.slice(0, -".json".length),
+    c.req.raw,
+  );
+});
+
 // --- Conference-scoped notebook WebSocket upgrade ---
-app.get("/api/conferences/:conferenceId/ws", (c) => {
-  const conference = conferenceById(c.req.param("conferenceId"));
+app.get("/api/conferences/:conferenceId/ws", async (c) => {
+  const { catalog } = await loadCatalog(c.env.PROGRAMS);
+  const conference = conferenceById(catalog, c.req.param("conferenceId"));
   if (!conference) return c.notFound();
   if (c.req.header("Upgrade") !== "websocket") {
     return c.text("Expected WebSocket upgrade", 426);
@@ -44,7 +64,8 @@ app.get("/api/conferences/:conferenceId/ws", (c) => {
 
 // --- Portable backup + refresh-safety input (the whole app is Access-protected) ---
 app.get("/api/conferences/:conferenceId/notebook/export.json", async (c) => {
-  const conference = conferenceById(c.req.param("conferenceId"));
+  const { catalog } = await loadCatalog(c.env.PROGRAMS);
+  const conference = conferenceById(catalog, c.req.param("conferenceId"));
   if (!conference) return c.notFound();
   const stub = c.env.NOTEBOOK.getByName(conference.id);
   const [notes, rsvps] = await Promise.all([
@@ -62,14 +83,13 @@ app.get("/api/conferences/:conferenceId/notebook/export.json", async (c) => {
 
 // --- CSV export of all notes joined with program item titles ---
 app.get("/api/conferences/:conferenceId/notes/export.csv", async (c) => {
-  const conference = conferenceById(c.req.param("conferenceId"));
+  const { catalog } = await loadCatalog(c.env.PROGRAMS);
+  const conference = conferenceById(catalog, c.req.param("conferenceId"));
   if (!conference) return c.notFound();
   const stub = c.env.NOTEBOOK.getByName(conference.id);
   const [notes, program] = await Promise.all([
     stub.getAllNotes(),
-    c.env.ASSETS.fetch(new URL(conference.program_path, c.req.url)).then(
-      (r) => r.json() as Promise<ConferenceProgram>,
-    ),
+    loadCurrentProgram(c.env.PROGRAMS, conference.id, conference.program_hash),
   ]);
 
   // item id → its title and the title of the containing session

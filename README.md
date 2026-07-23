@@ -87,13 +87,35 @@ python3 -m scripts.refresh_aaic apply ".refresh/{timestamp}"
 
 `apply` rechecks candidate and baseline hashes, fetches the notebook immediately
 before its final blocker check, promotes files atomically, and regenerates the
-CSV and SQLite exports. It never builds or deploys the app; rebuild the app asset
-separately with `pnpm run program` from `app/`.
+CSV and SQLite exports. It never publishes program data or deploys the app.
 
-That app command runs the AAIC/EventPilot adapter, validates the resulting
-provider-independent `ConferenceProgram`, and only then writes the immutable
-static asset. The scraper dump remains the lossless AAIC source; the validated
-program is the application's input boundary.
+Build the validated, ignored publication candidate separately:
+
+```bash
+cd app
+pnpm run program
+```
+
+This runs the AAIC/EventPilot adapter and writes
+`.programs/aaic-2026.json`. The scraper dump remains the lossless AAIC source;
+the provider-independent `ConferenceProgram` is the application's input
+boundary.
+
+Publish only after reviewing that candidate. The publisher requires a
+bucket-scoped R2 access key in `R2_ACCESS_KEY_ID` and
+`R2_SECRET_ACCESS_KEY`, plus `R2_ACCOUNT_ID`; `R2_BUCKET` defaults to
+`conference-programs`.
+
+```bash
+pnpm run program:publish -- .programs/aaic-2026.json
+```
+
+Publication validates the program again and reads the current catalog. An
+unchanged program verifies its existing immutable object and exits without
+rewriting the catalog. A changed program uploads and reads back its
+full-SHA-256 object, then conditionally updates `catalog.json` against the R2
+ETag. A concurrent promotion fails without changing the catalog pointer.
+Program publication does not build or deploy the Worker.
 
 Controlled refreshes default to four agenda-detail workers with a 0.20-second
 request-start interval, and four people workers with a 0.05-second interval.

@@ -33,4 +33,5 @@ dist/
 app/public/program.*.json
 app/public/_headers
 app/src/shared/generated/
+app/.programs/
 app/worker-configuration.d.ts
