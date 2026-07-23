@@ -46,7 +46,7 @@ rows for referenced ids.
 ## Current upstream quirks
 
 - EventPilot presentation order is unreliable in 128 of 363 sessions. The dump
-  preserves it; the app builder sorts presentations by start time.
+  preserves it; the AAIC app adapter sorts presentations by start time.
 - Poster data currently has 5,731 concrete board-number locations, 117 generic
   `Exhibit Hall` locations, and 19 literal `Board no. #N/A` values.
 - The four Plenary parents have no EventPilot child records. Their descriptions
@@ -55,10 +55,13 @@ rows for referenced ids.
 
 ## Downstream app contract
 
-The conference app's `scripts/build-program.ts` consumes `id`, `date`, times,
-title, location, category, session number, speaker ids, descriptions, and
-embedded presentations. Coordinate any source-data shape change with that
-builder.
+The conference app's `scripts/providers/eventpilot-aaic.ts` adapter consumes
+`id`, `date`, times, title, location, category, session number, speaker ids,
+descriptions, and embedded presentations. Coordinate any source-data shape
+change with that adapter.
 
-The generated static program asset keeps the nested presentation shape and
-intentionally omits relational hints such as `parent_id` and `subsession_ids`.
+The adapter keeps the nested presentation shape, intentionally omits relational
+hints such as `parent_id` and `subsession_ids`, adds conference metadata and
+normalized item kinds, and validates the result as `ConferenceProgram` v1 before
+the generic builder writes the static asset. See `schema/README.md` for the
+portable contract and publication invariants.

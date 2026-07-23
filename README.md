@@ -85,6 +85,11 @@ before its final blocker check, promotes files atomically, and regenerates the
 CSV and SQLite exports. It never builds or deploys the app; rebuild the app asset
 separately with `pnpm run program` from `app/`.
 
+That app command runs the AAIC/EventPilot adapter, validates the resulting
+provider-independent `ConferenceProgram`, and only then writes the immutable
+static asset. The scraper dump remains the lossless AAIC source; the validated
+program is the application's input boundary.
+
 Controlled refreshes default to four agenda-detail workers with a 0.20-second
 request-start interval, and four people workers with a 0.05-second interval.
 Lower concurrency or increase the interval if EventPilot begins rate-limiting.

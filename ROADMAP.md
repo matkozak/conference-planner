@@ -40,14 +40,19 @@ development deliberately falls back to `anonymous`.
 
 ### Static program data
 
-`app/scripts/build-program.ts` transforms
-`data/aaic_2026/{sessions,people}.json` into a content-hashed
-`program.<hash>.json` asset. It:
+`app/scripts/providers/eventpilot-aaic.ts` maps the lossless AAIC scrape into
+the provider-independent `ConferenceProgram` contract. The adapter:
 
 - trims the lossless scrape to fields used by the client;
 - sorts presentations by start time;
 - sanitizes description HTML to bare formatting tags; and
-- drops relational hints that are redundant in the nested client shape.
+- normalizes provider conventions such as EventPilot's `Poster` category into
+  explicit application item kinds.
+
+`app/scripts/build-program.ts` invokes that adapter, validates the complete
+program, writes the content-hashed `program.<hash>.json` static asset, and
+generates its path/hash metadata. The schema version belongs to the program
+contract; the content hash describes one serialized publication.
 
 The current payload is about 1.9 MiB compressed. Its immutable URL makes repeat
 loads cache-friendly, and all browsing and search happen client-side. There is
@@ -69,10 +74,14 @@ does not.
 
 ### Shared TypeScript domain
 
-Wire and program types live in `app/src/shared/` and are imported by the Worker,
-frontend, and build tooling. The frontend uses a small central Svelte store and
-hash routes; it does not duplicate server-domain types or introduce a second
-state framework.
+The Zod-backed `ConferenceProgram` contract and its inferred types live in
+`app/src/shared/program.ts`; notebook wire types remain in `app/src/shared/`.
+Build tooling executes the structural and cross-record validation, while Worker
+and frontend imports are type-only and do not bundle Zod. A generated portable
+JSON Schema and invariant notes live in `schema/`.
+
+The frontend uses a small central Svelte store and hash routes; it does not
+duplicate server-domain types or introduce a second state framework.
 
 ## Roadmap
 
@@ -185,6 +194,34 @@ a real requirement.
        compatibility route.
 7. [ ] Build the CTAD importer against the stable contract; adapt the schema only
        for genuine cross-conference concepts, not provider quirks.
+
+#### Notes from prior design work
+
+These are handoff context, not additional requirements. Future implementers
+should revisit them when real constraints or simpler options emerge.
+
+- Steps 2 and 3 precede R2 publication. A small checked-in finite conference
+  catalog appears to be a reasonable bridge for routing and local development,
+  with the R2 catalog replacing it later; its exact shape has not been decided.
+- The existing Python AAIC scraper and guarded refresh pipeline are mature and
+  should remain unless there is a concrete reason to replace them. A producer
+  may construct `ConferenceProgram` directly or use a separate adapter; the
+  adapter is optional, and the meaningful boundary is validated program JSON.
+- Treat the production notebook rename as a coordinated data migration, not
+  merely a `getByName` edit. Take and retain a snapshot, preserve notes and
+  RSVPs, verify the new object before cutover, and keep a rollback path. The
+  import/cutover mechanism is deliberately deferred until that work begins.
+- The catalog schema, R2 binding and bucket names, publication CLI, and any
+  concurrency guard are step 5 design decisions. The durable conclusions so far
+  are private storage, immutable program objects, and promotion by updating the
+  catalog last.
+- CTAD currently publishes its program as a PDF. Start with the simplest
+  extraction that works—possibly `pdftotext` plus layout/regex heuristics—and
+  add OCR or a VLM-assisted segmenter only if the document defeats that
+  approach. The validated program contract remains the handoff either way.
+- Domain, Access, and production-route changes in step 6 are coordinated
+  operations and should be checked against the current Cloudflare configuration
+  at implementation time.
 
 ### Resolve the incomplete REST fallback
 

@@ -4,6 +4,15 @@
 programs accepted by the conference application. It is generated from
 `app/src/shared/program.ts`; edit the Zod schema rather than the JSON file.
 
+A producer may construct this document directly or map a provider-specific
+format through an adapter. Adapters are optional: the meaningful handoff is a
+candidate program that passes the generic parser and invariant checks. The
+current AAIC adapter exists because its mature scraper deliberately retains a
+lossless EventPilot-oriented dump.
+
+Validation runs while building or publishing a program, not on the Worker or
+browser request path. Application consumers import only the inferred types.
+
 Publication validation also enforces invariants that JSON Schema cannot express:
 
 - item ids are unique across sessions and presentations;
