@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Session } from "../shared/types";
+  import type { Session } from "../shared/program";
   import { gotoSession, isPosterSession } from "./store.svelte";
   import { rsvpAuthors } from "./notebook.svelte";
   import { displayTitle, initials, timeRange } from "./format";

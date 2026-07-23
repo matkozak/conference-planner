@@ -49,8 +49,8 @@
       <p class="speakers">{speakerNames(session).join(" · ")}</p>
     {/if}
     <RsvpBar itemId={session.id} />
-    {#if session.description}
-      <p class="desc">{@html session.description}</p>
+    {#if session.description_html}
+      <p class="desc">{@html session.description_html}</p>
     {/if}
 
     {#if session.presentations.length}
@@ -77,8 +77,8 @@
             {#if speakerLines(item).length}
               <p class="speakers">{speakerLines(item).join(" · ")}</p>
             {/if}
-            {#if item.description}
-              <p class="desc">{@html item.description}</p>
+            {#if item.description_html}
+              <p class="desc">{@html item.description_html}</p>
             {/if}
             <RsvpBar itemId={item.id} />
             <NoteList itemId={item.id} />

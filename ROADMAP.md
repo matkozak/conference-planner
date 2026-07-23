@@ -169,22 +169,22 @@ a real requirement.
 
 #### Suggested delivery sequence
 
-1. Define the `ConferenceProgram` v1 schema and validation, with a synthetic
-   fixture and the current AAIC program as the first conformance input.
-2. Make conference identity, metadata, timezone handling, local-storage keys,
-   titles, and export filenames generic.
-3. Add path-scoped conference routing and conference-scoped API routes.
-4. Split notebook storage by conference and rename/migrate AAIC's existing
-   Durable Object with a verified backup.
-5. Add private R2 storage and a guarded publish/promote workflow, then remove
-   real conference programs from Worker assets and the working tree. Before
-   making the repository public, publish from a clean history or deliberately
-   rewrite the existing history; deleting the current AAIC dump in a later
-   commit does not remove it from earlier commits.
-6. Deploy at `conferences.kozak.ch` and retain the AAIC hostname as a
-   compatibility route.
-7. Build the CTAD importer against the stable contract; adapt the schema only
-   for genuine cross-conference concepts, not provider quirks.
+1. [x] Define the `ConferenceProgram` v1 schema and validation, with a synthetic
+       fixture and the current AAIC program as the first conformance input.
+2. [ ] Make conference identity, metadata, timezone handling, local-storage keys,
+       titles, and export filenames generic.
+3. [ ] Add path-scoped conference routing and conference-scoped API routes.
+4. [ ] Split notebook storage by conference and rename/migrate AAIC's existing
+       Durable Object with a verified backup.
+5. [ ] Add private R2 storage and a guarded publish/promote workflow, then remove
+       real conference programs from Worker assets and the working tree. Before
+       making the repository public, publish from a clean history or deliberately
+       rewrite the existing history; deleting the current AAIC dump in a later
+       commit does not remove it from earlier commits.
+6. [ ] Deploy at `conferences.kozak.ch` and retain the AAIC hostname as a
+       compatibility route.
+7. [ ] Build the CTAD importer against the stable contract; adapt the schema only
+       for genuine cross-conference concepts, not provider quirks.
 
 ### Resolve the incomplete REST fallback
 

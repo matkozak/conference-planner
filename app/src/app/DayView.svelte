@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Session } from "../shared/types";
+  import type { Session } from "../shared/program";
   import {
     gotoSearch,
     search,

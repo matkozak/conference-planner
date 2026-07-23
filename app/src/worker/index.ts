@@ -3,8 +3,8 @@ import { Hono } from "hono";
 // Re-export the DO class so wrangler can discover it.
 export { NotebookDO } from "./notebook";
 import type { NotebookDO } from "./notebook";
-import { PROGRAM_PATH } from "../shared/generated/program-meta";
-import type { Program } from "../shared/types";
+import { PROGRAM_HASH, PROGRAM_PATH } from "../shared/generated/program-meta";
+import type { ConferenceProgram } from "../shared/program";
 import { accessAuth, type AppEnv } from "./access";
 import { notebookSnapshot } from "./snapshot";
 
@@ -50,14 +50,11 @@ app.get("/api/notes", async (c) => {
 // --- Portable backup + refresh-safety input (the whole app is Access-protected) ---
 app.get("/api/notebook/export.json", async (c) => {
   const stub = c.env.NOTEBOOK.getByName("team");
-  const [notes, rsvps, program] = await Promise.all([
+  const [notes, rsvps] = await Promise.all([
     stub.getAllNotes(),
     stub.getAllRsvps(),
-    c.env.ASSETS.fetch(new URL(PROGRAM_PATH, c.req.url)).then(
-      (response) => response.json() as Promise<Program>,
-    ),
   ]);
-  return c.json(notebookSnapshot(program.version, notes, rsvps), 200, {
+  return c.json(notebookSnapshot(PROGRAM_HASH, notes, rsvps), 200, {
     "Content-Disposition": `attachment; filename="aaic2026-notebook-${new Date().toISOString().slice(0, 10)}.json"`,
   });
 });
@@ -68,7 +65,7 @@ app.get("/api/notes/export", async (c) => {
   const [notes, program] = await Promise.all([
     stub.getAllNotes(),
     c.env.ASSETS.fetch(new URL(PROGRAM_PATH, c.req.url)).then(
-      (r) => r.json() as Promise<Program>,
+      (r) => r.json() as Promise<ConferenceProgram>,
     ),
   ]);
 

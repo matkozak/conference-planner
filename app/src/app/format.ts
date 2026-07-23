@@ -1,4 +1,4 @@
-import type { Session } from "../shared/types";
+import type { Session } from "../shared/program";
 
 /** Display timezone: venue time (London) or home time (Zurich). */
 export type Zone = "london" | "zurich";

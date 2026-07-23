@@ -7,7 +7,11 @@
 import UFuzzy from "@leeoniya/ufuzzy";
 
 import { PROGRAM_PATH } from "../shared/generated/program-meta";
-import type { Presentation, Program, Session } from "../shared/types";
+import type {
+  ConferenceProgram,
+  Presentation,
+  Session,
+} from "../shared/program";
 import { displayTitle, localToday } from "./format";
 
 export type Route =
@@ -22,7 +26,7 @@ export type Route =
 export type PlanTab = "talks" | "posters" | "notes";
 
 export const ui = $state({
-  program: null as Program | null,
+  program: null as ConferenceProgram | null,
   route: null as Route | null,
   error: "",
 });
@@ -49,7 +53,7 @@ export const sessionsByDay = new Map<string, Session[]>();
 export const posterSessionsByDay = new Map<string, Session[]>();
 
 export function isPosterSession(s: Session): boolean {
-  return s.category === "Poster";
+  return s.kind === "poster-session";
 }
 
 // --- Init & routing ---
@@ -81,7 +85,7 @@ export async function init(): Promise<void> {
   try {
     const res = await fetch(PROGRAM_PATH);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const program: Program = await res.json();
+    const program: ConferenceProgram = await res.json();
     buildIndexes(program);
     ui.program = program;
   } catch (err) {
@@ -205,7 +209,7 @@ function initialDay(): string {
 
 // --- People ---
 
-export function speakerNames(item: Presentation): string[] {
+export function speakerNames(item: Presentation | Session): string[] {
   const people = ui.program?.people ?? {};
   return (item.speaker_ids ?? []).flatMap((id) => {
     const p = people[id];
@@ -214,7 +218,7 @@ export function speakerNames(item: Presentation): string[] {
 }
 
 /** "Name, Org" per primary speaker (talk detail); name alone if no org. */
-export function speakerLines(item: Presentation): string[] {
+export function speakerLines(item: Presentation | Session): string[] {
   const people = ui.program?.people ?? {};
   return (item.speaker_ids ?? []).flatMap((id) => {
     const p = people[id];
@@ -244,7 +248,7 @@ const searchEntries: SearchEntry[] = [];
 const ufExact = new UFuzzy();
 const ufFuzzy = new UFuzzy({ intraMode: 1 });
 
-function buildIndexes(program: Program): void {
+function buildIndexes(program: ConferenceProgram): void {
   const byStart = (a: Session, b: Session) =>
     (a.starts_at ?? "").localeCompare(b.starts_at ?? "") ||
     a.title.localeCompare(b.title);
@@ -298,7 +302,7 @@ let abstractHaystack: string[] | null = null;
 
 function ensureAbstractHaystack(): string[] {
   abstractHaystack ??= searchEntries.map((e, i) => {
-    const text = (e.talk ?? e.session).description ?? "";
+    const text = (e.talk ?? e.session).description_html ?? "";
     return `${haystack[i]} | ${text.replace(/<[^>]+>/g, " ")}`;
   });
   return abstractHaystack;
