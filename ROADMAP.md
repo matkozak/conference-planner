@@ -1,9 +1,9 @@
 # Conference app — architecture and roadmap
 
 The conference app is a mobile-first planning tool for a small internal team.
-AAIC 2026 remains live and Access-protected at `aaic2026.kozak.ch`; the app now
-has a finite multi-conference catalog and path-scoped product boundary ahead of
-the `conferences.kozak.ch` deployment.
+It is live and Access-protected at `conferences.kozak.ch`, with a finite
+multi-conference catalog and path-scoped product boundary. The historical
+`aaic2026.kozak.ch` hostname temporarily remains as an AAIC compatibility alias.
 
 ## What is shipped
 
@@ -20,10 +20,8 @@ the `conferences.kozak.ch` deployment.
   team's Zurich home timezone, stored as a per-device preference.
 - CSV note export joined with program titles, and a JSON notebook snapshot used
   by the guarded refresh workflow.
-- A root conference catalog plus conference paths such as `/aaic-2026/`. The
-  catalog UI is implemented but is not exposed at a production root until
-  `conferences.kozak.ch` is deployed; the historical AAIC hostname continues to
-  serve AAIC directly at `/`.
+- A root conference catalog plus conference paths such as `/aaic-2026/`; the
+  historical AAIC hostname continues to serve AAIC directly at `/`.
 
 ## Current architecture
 
@@ -33,11 +31,11 @@ A single TypeScript Worker serves static assets, routes the small Hono API, and
 binds the notebook Durable Object. Cloudflare's Vite plugin builds the Svelte 5
 frontend and Worker together.
 
-The Access-protected custom domain is the only production ingress. `workers.dev`
+Access-protected custom domains are the only production ingress. `workers.dev`
 and preview URLs are disabled in `wrangler.jsonc` so they cannot bypass Access.
-Currently only `aaic2026.kozak.ch` is bound. Its root is a client-side
-compatibility alias for AAIC rather than an HTTP redirect; both `/` and
-`/aaic-2026/` serve the same SPA and resolve to the same catalog entry.
+The primary `conferences.kozak.ch` hostname serves the catalog at its root. The
+temporary `aaic2026.kozak.ch` compatibility hostname resolves its root to AAIC
+rather than redirecting; both hostnames serve the same Worker and SPA.
 
 The Worker validates the `Cf-Access-Jwt-Assertion` signature, issuer, and
 application audience before taking identity from its email claim. Validation
@@ -197,8 +195,8 @@ a real requirement.
        public, remove the lossless AAIC dump from the working tree and publish
        from a clean history or deliberately rewrite the existing history;
        deleting it in a later commit does not remove it from earlier commits.
-6. [ ] Deploy at `conferences.kozak.ch` and retain the AAIC hostname as a
-       compatibility route.
+6. [x] Deploy at `conferences.kozak.ch` and temporarily retain the AAIC hostname
+       as a compatibility route.
 7. [ ] Build the CTAD importer against the stable contract; adapt the schema only
        for genuine cross-conference concepts, not provider quirks.
 

@@ -4,17 +4,18 @@ This repository contains two deliberately separate pieces:
 
 1. A Python standard-library scraper and export pipeline for the AAIC 2026
    EventPilot planner. Its committed JSON dump is the source of truth.
-2. A small multi-conference internal app, currently deployed for AAIC at
-   [aaic2026.kozak.ch](https://aaic2026.kozak.ch), implemented as a Cloudflare
-   Worker with a Svelte frontend and conference-scoped Durable Object notebooks.
+2. A small multi-conference internal app deployed at
+   [conferences.kozak.ch](https://conferences.kozak.ch), implemented as a
+   Cloudflare Worker with a Svelte frontend and conference-scoped Durable Object
+   notebooks.
 
 The app never changes the scraped program. Program refreshes are explicit,
 reviewed operations performed by the scraper tooling.
 
-The only production hostname today is `aaic2026.kozak.ch`. Its root path loads
-AAIC directly for compatibility; `/aaic-2026/` loads the same conference. The
-conference landing page is implemented but will become the production root only
-when `conferences.kozak.ch` is added.
+The production root lists the conference catalog;
+`conferences.kozak.ch/aaic-2026/` opens AAIC directly. The historical
+`aaic2026.kozak.ch` hostname temporarily remains as a compatibility alias whose
+root loads AAIC directly.
 
 ## Current data
 
