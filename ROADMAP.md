@@ -1,8 +1,9 @@
 # Conference app — architecture and roadmap
 
-`aaic2026.kozak.ch` is a mobile-first planning app for a small internal team at
-AAIC 2026. It is live, Access-protected, and built from the committed program
-dump in this repository.
+The conference app is a mobile-first planning tool for a small internal team.
+AAIC 2026 remains live and Access-protected at `aaic2026.kozak.ch`; the app now
+has a finite multi-conference catalog and path-scoped product boundary ahead of
+the `conferences.kozak.ch` deployment.
 
 ## What is shipped
 
@@ -15,10 +16,12 @@ dump in this repository.
 - Session/presentation RSVPs with team initials on planning views.
 - Personal and team schedules assembled from RSVPs, plus the current user's
   notes.
-- Venue-time (London/BST) and home-time (Zurich/CEST) display, stored as a
-  per-device preference.
+- Venue/home time display using each program's IANA venue timezone and the
+  team's Zurich home timezone, stored as a per-device preference.
 - CSV note export joined with program titles, and a JSON notebook snapshot used
   by the guarded refresh workflow.
+- A root conference catalog plus conference paths such as `/aaic-2026/`; the
+  historical AAIC hostname continues to serve AAIC at `/`.
 
 ## Current architecture
 
@@ -51,8 +54,10 @@ the provider-independent `ConferenceProgram` contract. The adapter:
 
 `app/scripts/build-program.ts` invokes that adapter, validates the complete
 program, writes the content-hashed `program.<hash>.json` static asset, and
-generates its path/hash metadata. The schema version belongs to the program
-contract; the content hash describes one serialized publication.
+generates its conference/path/hash metadata. A finite application catalog wraps
+that generated metadata until the private R2 catalog replaces it. The schema
+version belongs to the program contract; the content hash describes one
+serialized publication.
 
 The current payload is about 1.9 MiB compressed. Its immutable URL makes repeat
 loads cache-friendly, and all browsing and search happen client-side. There is
@@ -61,16 +66,19 @@ needed by note export.
 
 ### One team-notebook Durable Object
 
-One named `NotebookDO` instance stores all team notes and RSVPs in its built-in
-SQLite database. This deliberately avoids sharding for roughly ten users.
+The `NotebookDO` class represents one conference notebook, with one named
+instance per conference. The scoped AAIC routes still explicitly resolve to the
+historical `"team"` instance until its verified migration to `"aaic-2026"`;
+new conferences use their catalog id. Each instance stores its notes and RSVPs
+in built-in SQLite.
 
 Clients connect through a hibernatable WebSocket. The object sends an initial
 snapshot and broadcasts writes to connected clients. The client reconnects with
 capped backoff after disconnection.
 
-There is an unused notes-only REST endpoint, but no complete REST fallback in the
-client. Notes and RSVP writes require a live socket; browsing the cached program
-does not.
+Notes and RSVP synchronization intentionally uses only the WebSocket reconnect
+path. There is no partial REST fallback. Browsing the cached program does not
+require a live socket.
 
 ### Shared TypeScript domain
 
@@ -180,9 +188,9 @@ a real requirement.
 
 1. [x] Define the `ConferenceProgram` v1 schema and validation, with a synthetic
        fixture and the current AAIC program as the first conformance input.
-2. [ ] Make conference identity, metadata, timezone handling, local-storage keys,
+2. [x] Make conference identity, metadata, timezone handling, local-storage keys,
        titles, and export filenames generic.
-3. [ ] Add path-scoped conference routing and conference-scoped API routes.
+3. [x] Add path-scoped conference routing and conference-scoped API routes.
 4. [ ] Split notebook storage by conference and rename/migrate AAIC's existing
        Durable Object with a verified backup.
 5. [ ] Add private R2 storage and a guarded publish/promote workflow, then remove
@@ -200,9 +208,9 @@ a real requirement.
 These are handoff context, not additional requirements. Future implementers
 should revisit them when real constraints or simpler options emerge.
 
-- Steps 2 and 3 precede R2 publication. A small checked-in finite conference
-  catalog appears to be a reasonable bridge for routing and local development,
-  with the R2 catalog replacing it later; its exact shape has not been decided.
+- Steps 2 and 3 use a small finite TypeScript catalog derived from generated
+  program metadata. It is only a bridge for routing and local development; the
+  R2 catalog replaces it in step 5.
 - The existing Python AAIC scraper and guarded refresh pipeline are mature and
   should remain unless there is a concrete reason to replace them. A producer
   may construct `ConferenceProgram` directly or use a separate adapter; the
@@ -223,16 +231,11 @@ should revisit them when real constraints or simpler options emerge.
   operations and should be checked against the current Cloudflare configuration
   at implementation time.
 
-### Resolve the incomplete REST fallback
+### WebSocket-only synchronization
 
-Choose one honest behavior:
-
-- keep WebSocket reconnect as the only synchronization path and remove the
-  unused `/api/notes` endpoint; or
-- add a complete read fallback containing both notes and RSVPs and use it while
-  the socket reconnects.
-
-Do not add offline writes unless actual venue use demonstrates the need.
+The unused notes-only REST endpoint has been removed. WebSocket reconnect is the
+one synchronization path for notes and RSVPs. Do not add offline writes unless
+actual venue use demonstrates the need.
 
 ### Small product follow-ups
 

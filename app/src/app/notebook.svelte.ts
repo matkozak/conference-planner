@@ -5,6 +5,7 @@
 import { SvelteMap } from "svelte/reactivity";
 
 import type { ClientMsg, Note, ServerMsg } from "../shared/notebook";
+import { conferenceApiPath } from "./store.svelte";
 
 export const notes = $state({
   byId: new SvelteMap<number, Note>(),
@@ -68,7 +69,7 @@ function openSocket(): void {
     return;
 
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  ws = new WebSocket(`${proto}//${location.host}/api/ws`);
+  ws = new WebSocket(`${proto}//${location.host}${conferenceApiPath("/ws")}`);
 
   ws.onopen = () => {
     notes.connected = true;

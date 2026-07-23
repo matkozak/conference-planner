@@ -17,6 +17,7 @@ export interface Rsvp {
 
 /** Downloadable safety snapshot used before a program refresh. */
 export interface NotebookSnapshot {
+  conference_id: string;
   program_version: string;
   exported_at: string;
   notes: Note[];

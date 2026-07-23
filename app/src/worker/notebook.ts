@@ -18,8 +18,9 @@ type RsvpRow = Record<string, SqlStorageValue> & {
 };
 
 /**
- * The team's shared notebook. One instance ("team") holds every note from
- * every user. SQLite for storage, WebSocket hibernation for live sync.
+ * One conference team's shared notebook. Each named instance holds every note
+ * and RSVP for that conference. SQLite for storage, WebSocket hibernation for
+ * live sync.
  *
  * Each WebSocket carries the user's email as an attachment, set once at accept
  * time from the Access JWT validated by the outer Worker.

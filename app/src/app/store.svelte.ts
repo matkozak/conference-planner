@@ -6,13 +6,14 @@
  */
 import UFuzzy from "@leeoniya/ufuzzy";
 
-import { PROGRAM_PATH } from "../shared/generated/program-meta";
+import { conferenceForLocation } from "../shared/catalog";
 import type {
   ConferenceProgram,
   Presentation,
   Session,
 } from "../shared/program";
-import { displayTitle, localToday } from "./format";
+import { todayInTimeZone } from "./format";
+import { setVenueTimeZone } from "./tz.svelte";
 
 export type Route =
   | { view: "day"; day: string }
@@ -26,6 +27,7 @@ export type Route =
 export type PlanTab = "talks" | "posters" | "notes";
 
 export const ui = $state({
+  catalog: false,
   program: null as ConferenceProgram | null,
   route: null as Route | null,
   error: "",
@@ -71,7 +73,22 @@ export function savedScroll(hash: string): number {
   return scrollPositions.get(hash) ?? 0;
 }
 
-export async function init(): Promise<void> {
+/** Initialize either the conference catalog root or one conference app. */
+export async function init(): Promise<boolean> {
+  const conference = conferenceForLocation(
+    location.pathname,
+    location.hostname,
+  );
+  if (conference === null) {
+    ui.catalog = true;
+    document.title = "Conferences";
+    return false;
+  }
+  if (!conference) {
+    ui.error = "Conference not found.";
+    return false;
+  }
+
   currentHash = location.hash;
   window.addEventListener("hashchange", () => {
     scrollPositions.set(currentHash, window.scrollY);
@@ -83,16 +100,30 @@ export async function init(): Promise<void> {
     ui.route = parseHash();
   });
   try {
-    const res = await fetch(PROGRAM_PATH);
+    const res = await fetch(conference.program_path);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const program: ConferenceProgram = await res.json();
+    if (program.conference.id !== conference.id) {
+      throw new Error(
+        `catalog expected ${conference.id}, program contains ${program.conference.id}`,
+      );
+    }
     buildIndexes(program);
+    setVenueTimeZone(program.conference.timezone, program.conference.starts_on);
     ui.program = program;
+    document.title = program.conference.short_name;
   } catch (err) {
     ui.error = `Failed to load the program: ${err instanceof Error ? err.message : String(err)}`;
-    return;
+    return false;
   }
   ui.route = parseHash();
+  return true;
+}
+
+export function conferenceApiPath(path: string): string {
+  const id = ui.program?.conference.id;
+  if (!id) throw new Error("conference API requested before program load");
+  return `/api/conferences/${encodeURIComponent(id)}${path}`;
 }
 
 function parseHash(): Route {
@@ -175,17 +206,38 @@ export function goUp(): void {
 // --- Day stickiness: an explicit choice wins for the rest of that real day,
 // --- then we default back to "today at the conference".
 
-const DAY_KEY = "aaic:day";
+const LEGACY_DAY_KEY = "aaic:day";
+
+function dayKey(conferenceId: string): string {
+  return `conferences:${conferenceId}:day`;
+}
+
+function conferenceToday(): string {
+  return todayInTimeZone(ui.program?.conference.timezone ?? "UTC");
+}
 
 function rememberDay(day: string): void {
-  localStorage.setItem(DAY_KEY, JSON.stringify({ day, on: localToday() }));
+  const conferenceId = ui.program?.conference.id;
+  if (!conferenceId) return;
+  localStorage.setItem(
+    dayKey(conferenceId),
+    JSON.stringify({ day, on: conferenceToday() }),
+  );
 }
 
 function initialDay(): string {
-  const days = ui.program?.days ?? [];
-  const today = localToday();
+  const program = ui.program;
+  const days = program?.days ?? [];
+  const today = conferenceToday();
+  const key = program ? dayKey(program.conference.id) : "";
+  const legacy =
+    program?.conference.id === "aaic-2026"
+      ? localStorage.getItem(LEGACY_DAY_KEY)
+      : null;
   try {
-    const stored: unknown = JSON.parse(localStorage.getItem(DAY_KEY) ?? "null");
+    const stored: unknown = JSON.parse(
+      (key && localStorage.getItem(key)) ?? legacy ?? "null",
+    );
     if (
       typeof stored === "object" &&
       stored !== null &&
@@ -195,6 +247,9 @@ function initialDay(): string {
       typeof stored.day === "string" &&
       days.includes(stored.day)
     ) {
+      if (key && !localStorage.getItem(key)) {
+        localStorage.setItem(key, JSON.stringify(stored));
+      }
       return stored.day;
     }
   } catch {
@@ -279,7 +334,7 @@ function buildIndexes(program: ConferenceProgram): void {
       .join(" ");
   for (const s of sessionsById.values()) {
     haystack.push(
-      [displayTitle(s), s.category, s.location, people(s.speaker_ids)]
+      [s.title, s.category, s.location, people(s.speaker_ids)]
         .filter(Boolean)
         .join(" | "),
     );

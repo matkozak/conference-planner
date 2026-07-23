@@ -1,12 +1,12 @@
-# AAIC 2026 — program data and conference app
+# Conference app and AAIC 2026 program data
 
 This repository contains two deliberately separate pieces:
 
 1. A Python standard-library scraper and export pipeline for the AAIC 2026
    EventPilot planner. Its committed JSON dump is the source of truth.
-2. A small internal conference app at
+2. A small multi-conference internal app, currently deployed for AAIC at
    [aaic2026.kozak.ch](https://aaic2026.kozak.ch), implemented as a Cloudflare
-   Worker with a Svelte frontend and a Durable Object team notebook.
+   Worker with a Svelte frontend and conference-scoped Durable Object notebooks.
 
 The app never changes the scraped program. Program refreshes are explicit,
 reviewed operations performed by the scraper tooling.

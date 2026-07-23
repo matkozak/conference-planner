@@ -15,6 +15,7 @@
   } from "./store.svelte";
   import { connectNotebook } from "./notebook.svelte";
   import { dayTab } from "./format";
+  import ConferenceList from "./ConferenceList.svelte";
   import DayView from "./DayView.svelte";
   import MyStuffView from "./MyStuffView.svelte";
   import PostersView from "./PostersView.svelte";
@@ -22,7 +23,9 @@
   import SessionDetail from "./SessionDetail.svelte";
   import TeamView from "./TeamView.svelte";
 
-  void init().then(() => connectNotebook());
+  void init().then((conferenceLoaded) => {
+    if (conferenceLoaded) connectNotebook();
+  });
 
   // The session being viewed (if any) — its day tab lights up for orientation.
   const viewedSession = $derived(
@@ -55,6 +58,8 @@
 
 {#if ui.error}
   <main class="center"><p>{ui.error}</p></main>
+{:else if ui.catalog}
+  <ConferenceList />
 {:else if !ui.program || !ui.route}
   <main class="center"><p>Loading the program…</p></main>
 {:else}

@@ -1,15 +1,18 @@
 <script lang="ts">
-  import { ZONE_LABEL } from "./format";
-  import { toggleZone, tz } from "./tz.svelte";
+  import {
+    timeModeLabel,
+    toggleTimeMode,
+    tz,
+    type TimeMode,
+  } from "./tz.svelte";
 
-  const other = $derived(tz.zone === "london" ? "zurich" : "london");
+  const otherMode = $derived<TimeMode>(tz.mode === "venue" ? "home" : "venue");
 </script>
 
 <!-- The annotation IS the toggle: one tappable line, no prefs page needed. -->
-<button class="tz-note" onclick={toggleZone}>
-  All times {ZONE_LABEL[tz.zone]}
-  {tz.zone === "london" ? "(venue)" : "(Zurich)"}
-  · <span class="switch">switch to {ZONE_LABEL[other]}</span>
+<button class="tz-note" onclick={toggleTimeMode}>
+  All times in {timeModeLabel(tz.mode)} ·
+  <span class="switch">switch to {timeModeLabel(otherMode)}</span>
 </button>
 
 <style>

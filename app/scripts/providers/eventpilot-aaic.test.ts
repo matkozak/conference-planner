@@ -43,6 +43,13 @@ describe("trimPresentation", () => {
       description_html: "Someone; Somewhere",
     });
   });
+
+  it("normalizes EventPilot board-number locations", () => {
+    expect(
+      trimPresentation({ ...rawTalk, location: "Board no. Sunday-0149" })
+        .location,
+    ).toBe("Sunday-0149");
+  });
 });
 
 describe("trimSession", () => {
@@ -56,9 +63,24 @@ describe("trimSession", () => {
   });
 
   it("normalizes EventPilot poster categories into explicit item kinds", () => {
-    const session = trimSession({ ...rawSession, category: "Poster" });
+    const session = trimSession({
+      ...rawSession,
+      category: "Poster",
+      title: "[In-Person Posters Sun] Biomarkers",
+    });
     expect(session.kind).toBe("poster-session");
+    expect(session.title).toBe("Biomarkers");
     expect(session.presentations[0]?.kind).toBe("poster");
+  });
+
+  it("removes a repeated provider category from the session title", () => {
+    expect(
+      trimSession({
+        ...rawSession,
+        category: "Plenary",
+        title: "Plenary - Opening session",
+      }).title,
+    ).toBe("Opening session");
   });
 
   it("rejects sessions without a date", () => {

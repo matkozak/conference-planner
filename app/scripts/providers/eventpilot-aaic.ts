@@ -92,10 +92,27 @@ function presentationFields(raw: RawEventPilotItem): PresentationFields {
     title: raw.title,
     starts_at: raw.starts_at,
     ends_at: raw.ends_at,
-    location: raw.location,
+    location: normalizeLocation(raw.location),
     speaker_ids: raw.speaker_ids?.length ? raw.speaker_ids : undefined,
     description_html: descriptionOf(raw),
   });
+}
+
+/** Normalize EventPilot display conventions before they reach the app. */
+function normalizeLocation(location?: string): string | undefined {
+  return location?.replace(/^Board no\.\s*/, "");
+}
+
+function normalizeSessionTitle(raw: RawEventPilotItem): string {
+  let title = raw.title;
+  const categoryPrefix = raw.category && `${raw.category} - `;
+  if (categoryPrefix && title.startsWith(categoryPrefix)) {
+    title = title.slice(categoryPrefix.length);
+  }
+  if (raw.category === "Poster") {
+    title = title.replace(/^\[[^\]]*\]\s*/, "");
+  }
+  return title;
 }
 
 export function trimPresentation(
@@ -112,6 +129,7 @@ export function trimSession(raw: RawEventPilotItem): Session {
   return {
     kind: poster ? "poster-session" : "session",
     ...presentationFields(raw),
+    title: normalizeSessionTitle(raw),
     ...prune({ category: raw.category, session_number: raw.session_number }),
     date: raw.date,
     // EventPilot's child order is frequently rotated; missing times sort last.

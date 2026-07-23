@@ -25,7 +25,10 @@ from scripts.scrape_aaic import write_outputs
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATA = ROOT / "data" / "aaic_2026"
 DEFAULT_REFRESH_ROOT = ROOT / ".refresh"
-NOTEBOOK_URL = "https://aaic2026.kozak.ch/api/notebook/export.json"
+NOTEBOOK_URL = (
+    "https://aaic2026.kozak.ch"
+    "/api/conferences/aaic-2026/notebook/export.json"
+)
 REPORT_JSON = "report.json"
 REPORT_MD = "report.md"
 STAGED_NOTEBOOK = "notebook-snapshot.json"
@@ -325,6 +328,8 @@ def suspected_remaps(
 
 def snapshot_references(snapshot: Any, source: str) -> dict[str, dict[str, int]]:
     try:
+        if snapshot["conference_id"] != "aaic-2026":
+            raise TypeError("conference_id must be aaic-2026")
         if not isinstance(snapshot["program_version"], str):
             raise TypeError("program_version must be a string")
         if not isinstance(snapshot["exported_at"], str):

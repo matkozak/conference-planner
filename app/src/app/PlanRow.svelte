@@ -2,8 +2,8 @@
   import type { SearchEntry } from "./store.svelte";
   import { gotoSession } from "./store.svelte";
   import { currentUser } from "./notebook.svelte";
-  import { boardNo, displayTitle, hhmm, initials } from "./format";
-  import { tz } from "./tz.svelte";
+  import { hhmm, initials } from "./format";
+  import { selectedTimeZone } from "./tz.svelte";
 
   /** One schedule row (Me & Team views): time, what/where, optional chips. */
   let {
@@ -19,14 +19,14 @@
   class="row"
   onclick={() => gotoSession(entry.session.id, entry.talk?.id)}
 >
-  <span class="time">{hhmm(startsAt, tz.zone) || "·"}</span>
+  <span class="time">{hhmm(startsAt, selectedTimeZone()) || "·"}</span>
   <span class="what">
-    {entry.talk?.title ?? displayTitle(entry.session)}
+    {entry.talk?.title ?? entry.session.title}
     {#if entry.talk}
-      <span class="in">in {displayTitle(entry.session)}</span>
+      <span class="in">in {entry.session.title}</span>
     {/if}
     {#if loc}
-      <span class="loc">📍 {boardNo(loc)}</span>
+      <span class="loc">📍 {loc}</span>
     {/if}
   </span>
   {#if authors.length}

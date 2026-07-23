@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { SearchEntry } from "./store.svelte";
   import { entryKind, gotoSession } from "./store.svelte";
-  import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from "./format";
-  import { tz } from "./tz.svelte";
+  import { dayLabel, hhmm, timeRange } from "./format";
+  import { selectedTimeZone } from "./tz.svelte";
 
   let {
     entries,
@@ -36,22 +36,21 @@
     onclick={() => gotoSession(result.session.id, result.talk?.id)}
   >
     <div class="title">
-      {result.talk ? result.talk.title : displayTitle(result.session)}
+      {result.talk ? result.talk.title : result.session.title}
     </div>
     <div class="meta">
       <span class="kind">{KIND_LABEL[kind]}</span>
       <span>{dayLabel(result.session.date)}</span>
       {#if kind === "poster"}
-        {#if result.talk?.location}<span>{boardNo(result.talk.location)}</span
-          >{/if}
+        {#if result.talk?.location}<span>{result.talk.location}</span>{/if}
       {:else}
         <span class="time">
           {result.talk
-            ? hhmm(result.talk.starts_at, tz.zone)
+            ? hhmm(result.talk.starts_at, selectedTimeZone())
             : timeRange(
                 result.session.starts_at,
                 result.session.ends_at,
-                tz.zone,
+                selectedTimeZone(),
               )}
         </span>
         {#if result.talk?.location ?? result.session.location}

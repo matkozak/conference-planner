@@ -2,6 +2,7 @@
   import type { Note } from "../shared/notebook";
   import { currentUser, deleteNote, updateNote } from "./notebook.svelte";
   import { noteStamp } from "./format";
+  import { selectedTimeZone } from "./tz.svelte";
 
   let { note }: { note: Note } = $props();
 
@@ -64,7 +65,9 @@
   {:else}
     <div class="note-meta">
       <span class="note-author">{shortName(note.author)}</span>
-      <span class="note-time">{noteStamp(note.created_at)}</span>
+      <span class="note-time"
+        >{noteStamp(note.created_at, selectedTimeZone())}</span
+      >
     </div>
     <p class="note-body">{note.body}</p>
     {#if note.author === currentUser.email}

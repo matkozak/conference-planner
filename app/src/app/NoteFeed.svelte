@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { Note } from "../shared/notebook";
-  import { displayTitle } from "./format";
   import NoteCard from "./NoteCard.svelte";
   import type { SearchEntry } from "./store.svelte";
   import { gotoSession, itemsById } from "./store.svelte";
@@ -9,7 +8,7 @@
   let { notes, empty }: { notes: Note[]; empty: string } = $props();
 
   function itemTitle(entry: SearchEntry): string {
-    return entry.talk?.title ?? displayTitle(entry.session);
+    return entry.talk?.title ?? entry.session.title;
   }
 
   function open(entry: SearchEntry): void {

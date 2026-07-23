@@ -1,97 +1,96 @@
-import type { Session } from "../shared/program";
+const timeFormatters = new Map<string, Intl.DateTimeFormat>();
 
-/** Display timezone: venue time (London) or home time (Zurich). */
-export type Zone = "london" | "zurich";
+function timeFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = timeFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    timeFormatters.set(timeZone, formatter);
+  }
+  return formatter;
+}
 
-/** The conference runs in July 2026, so both zones are firmly in DST. */
-export const ZONE_LABEL: Record<Zone, string> = {
-  london: "BST",
-  zurich: "CEST",
-};
+/** Short zone name (BST, CET, …) for a representative calendar date. */
+export function timeZoneAbbreviation(timeZone: string, date: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    timeZoneName: "short",
+  }).formatToParts(new Date(`${date}T12:00:00Z`));
+  return parts.find((part) => part.type === "timeZoneName")?.value ?? timeZone;
+}
 
-const zurichTime = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/Zurich",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-});
-
-/**
- * Times in the program are ISO strings with the venue's UTC offset, so the
- * wall-clock part of the string IS venue-local time — no Date math needed
- * unless the user asked for Zurich time. (No session ends past mid-afternoon
- * venue time, so the +1h shift can never move an item to another day.)
- */
-export function hhmm(iso?: string, zone: Zone = "london"): string {
+/** Format a program timestamp in an explicit IANA timezone. */
+export function hhmm(iso: string | undefined, timeZone: string): string {
   if (!iso) return "";
-  return zone === "london"
-    ? iso.slice(11, 16)
-    : zurichTime.format(new Date(iso));
+  return timeFormatter(timeZone).format(new Date(iso));
 }
 
 export function timeRange(
-  start?: string,
-  end?: string,
-  zone: Zone = "london",
+  start: string | undefined,
+  end: string | undefined,
+  timeZone: string,
 ): string {
-  const a = hhmm(start, zone);
-  const b = hhmm(end, zone);
+  const a = hhmm(start, timeZone);
+  const b = hhmm(end, timeZone);
   return a && b ? `${a}–${b}` : a || b;
 }
 
 /** "2026-07-12" → "Sun 12 Jul" */
 export function dayLabel(date: string): string {
-  return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", {
+    timeZone: "UTC",
     weekday: "short",
     day: "numeric",
     month: "short",
   });
 }
 
-/** Today as YYYY-MM-DD in the user's timezone (== venue timezone on site). */
-export function localToday(): string {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mm}-${dd}`;
+/** Today as YYYY-MM-DD in an explicit IANA timezone. */
+export function todayInTimeZone(timeZone: string, now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((candidate) => candidate.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 /** "2026-07-12" → "Sun 12" (compact form for the tab bar). */
 export function dayTab(date: string): string {
-  return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", {
+    timeZone: "UTC",
     weekday: "short",
     day: "numeric",
   });
 }
 
-/** Note timestamp: "2026-07-08T13:32:05Z" → "8 Jul 14:32" (local time). */
-export function noteStamp(iso: string, withTime = true): string {
+/** Note timestamp in the selected venue/home timezone. */
+export function noteStamp(
+  iso: string,
+  timeZone: string,
+  withTime = true,
+): string {
   const d = new Date(iso);
   const date = d.toLocaleDateString("en-GB", {
+    timeZone,
     month: "short",
     day: "numeric",
   });
   if (!withTime) return date;
   const time = d.toLocaleTimeString("en-GB", {
+    timeZone,
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
   });
   return `${date} ${time}`;
-}
-
-/** "Board no. Sunday-0149" → "Sunday-0149"; other locations unchanged. */
-export function boardNo(location?: string): string {
-  return location?.startsWith("Board no. ")
-    ? location.slice("Board no. ".length)
-    : (location ?? "");
-}
-
-/**
- * Poster session titles carry a redundant "[In-Person Posters Sun]" style
- * prefix; the Posters tab already groups by day, so strip it there.
- */
-export function posterTopic(s: Session): string {
-  return displayTitle(s).replace(/^\[[^\]]*\]\s*/, "");
 }
 
 /** "mateusz.kozak@x.com" → "MK"; single-word local parts use two letters. */
@@ -100,12 +99,4 @@ export function initials(email: string): string {
   const parts = local.split(/[._-]+/).filter(Boolean);
   const two = (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "");
   return (parts.length >= 2 ? two : local.slice(0, 2)).toUpperCase();
-}
-
-/** Many titles repeat their category ("Plenary - Opening…"); strip the echo. */
-export function displayTitle(s: Session): string {
-  const prefix = `${s.category} - `;
-  return s.category && s.title.startsWith(prefix)
-    ? s.title.slice(prefix.length)
-    : s.title;
 }

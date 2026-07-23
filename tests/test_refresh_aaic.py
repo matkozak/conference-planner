@@ -68,6 +68,7 @@ def write_snapshot(path: Path, item_id: str | None = None) -> None:
     path.write_text(
         json.dumps(
             {
+                "conference_id": "aaic-2026",
                 "program_version": "deadbeef",
                 "exported_at": "2026-07-10T12:00:00Z",
                 "notes": notes,
@@ -85,6 +86,7 @@ class RefreshReportTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             destination = Path(tmp) / "notebook.json"
             payload = {
+                "conference_id": "aaic-2026",
                 "program_version": "deadbeef",
                 "exported_at": "2026-07-10T12:00:00Z",
                 "notes": [],

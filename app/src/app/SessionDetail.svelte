@@ -5,8 +5,8 @@
     speakerLines,
     speakerNames,
   } from "./store.svelte";
-  import { boardNo, dayLabel, displayTitle, hhmm, timeRange } from "./format";
-  import { tz } from "./tz.svelte";
+  import { dayLabel, hhmm, timeRange } from "./format";
+  import { selectedTimeZone } from "./tz.svelte";
   import NoteList from "./NoteList.svelte";
   import RsvpBar from "./RsvpBar.svelte";
 
@@ -32,12 +32,12 @@
 
 {#if session}
   <main class="detail">
-    <h1 class="detail-title">{displayTitle(session)}</h1>
+    <h1 class="detail-title">{session.title}</h1>
     <p class="when">
       {dayLabel(session.date)} · {timeRange(
         session.starts_at,
         session.ends_at,
-        tz.zone,
+        selectedTimeZone(),
       )}
       {#if session.location}&nbsp;· {session.location}{/if}
     </p>
@@ -65,8 +65,8 @@
           <summary>
             <span class="time">
               {(poster
-                ? boardNo(item.location)
-                : hhmm(item.starts_at, tz.zone)) || "·"}
+                ? item.location
+                : hhmm(item.starts_at, selectedTimeZone())) || "·"}
             </span>
             <span>{item.title}</span>
           </summary>
