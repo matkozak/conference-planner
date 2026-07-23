@@ -6,11 +6,6 @@ import type { NotebookDO } from "./notebook";
 import type { ConferenceProgram } from "../shared/program";
 import { accessAuth, type AppEnv } from "./access";
 import { runtimeConference } from "./conferences";
-import {
-  AAIC_NOTEBOOK_MIGRATION,
-  isAaicMigrationConfirmation,
-  notebookRowsEqual,
-} from "./notebook-migration";
 import { notebookSnapshot } from "./snapshot";
 
 // The generated Env has NOTEBOOK: DurableObjectNamespace (untyped).
@@ -32,69 +27,6 @@ const app = new Hono<AppEnv>();
 app.use("*", accessAuth);
 
 app.get("/api/health", (c) => c.json({ ok: true, user: c.get("userEmail") }));
-
-const notebookMigrationPath = "/api/admin/migrations/aaic-2026/notebook";
-
-app.get(notebookMigrationPath, async (c) => {
-  const source = c.env.NOTEBOOK.getByName(AAIC_NOTEBOOK_MIGRATION.source);
-  const destination = c.env.NOTEBOOK.getByName(
-    AAIC_NOTEBOOK_MIGRATION.destination,
-  );
-  const [sourceStatus, destinationStatus] = await Promise.all([
-    source.migrationStatus(),
-    destination.migrationStatus(),
-  ]);
-  return c.json({ source: sourceStatus, destination: destinationStatus });
-});
-
-app.post(notebookMigrationPath, async (c) => {
-  const confirmation: unknown = await c.req.json().catch(() => null);
-  if (!isAaicMigrationConfirmation(confirmation)) {
-    return c.json({ ok: false, error: "Invalid migration confirmation" }, 400);
-  }
-
-  const source = c.env.NOTEBOOK.getByName(AAIC_NOTEBOOK_MIGRATION.source);
-  const destination = c.env.NOTEBOOK.getByName(
-    AAIC_NOTEBOOK_MIGRATION.destination,
-  );
-  try {
-    const rows = await source.prepareMigration();
-    const result = await destination.importMigration(rows);
-    const [notes, rsvps] = await Promise.all([
-      destination.getAllNotes(),
-      destination.getAllRsvps(),
-    ]);
-    if (!notebookRowsEqual(rows, { notes, rsvps })) {
-      throw new Error("post-import verification failed");
-    }
-    return c.json({
-      ok: true,
-      result,
-      source: await source.migrationStatus(),
-      destination: await destination.migrationStatus(),
-    });
-  } catch (error) {
-    await source.setMigrationReadOnly(false);
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(
-      JSON.stringify({
-        message: "AAIC notebook migration failed",
-        error: message,
-      }),
-    );
-    return c.json({ ok: false, error: message }, 500);
-  }
-});
-
-app.delete(notebookMigrationPath, async (c) => {
-  const confirmation: unknown = await c.req.json().catch(() => null);
-  if (!isAaicMigrationConfirmation(confirmation)) {
-    return c.json({ ok: false, error: "Invalid migration confirmation" }, 400);
-  }
-  const source = c.env.NOTEBOOK.getByName(AAIC_NOTEBOOK_MIGRATION.source);
-  await source.setMigrationReadOnly(false);
-  return c.json({ ok: true, source: await source.migrationStatus() });
-});
 
 // --- Conference-scoped notebook WebSocket upgrade ---
 app.get("/api/conferences/:conferenceId/ws", (c) => {

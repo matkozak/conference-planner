@@ -1,11 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
 import type { ClientMsg, ServerMsg } from "../shared/notebook";
-import {
-  notebookRowsEqual,
-  type NotebookMigrationStatus,
-  type NotebookRows,
-} from "./notebook-migration";
 
 /** Row shape returned by SQLite — matches Note but satisfies SqlStorageValue. */
 type NoteRow = Record<string, SqlStorageValue> & {
@@ -23,8 +18,6 @@ type RsvpRow = Record<string, SqlStorageValue> & {
   created_at: string;
 };
 
-const MIGRATION_READ_ONLY_KEY = "migration:read-only";
-
 /**
  * One conference team's shared notebook. Each named instance holds every note
  * and RSVP for that conference. SQLite for storage, WebSocket hibernation for
@@ -34,35 +27,29 @@ const MIGRATION_READ_ONLY_KEY = "migration:read-only";
  * time from the Access JWT validated by the outer Worker.
  */
 export class NotebookDO extends DurableObject<Env> {
-  private migrationReadOnly = false;
-
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    ctx.blockConcurrencyWhile(async () => {
-      ctx.storage.sql.exec(`
-        CREATE TABLE IF NOT EXISTS notes (
-          id         INTEGER PRIMARY KEY AUTOINCREMENT,
-          item_id    TEXT    NOT NULL,
-          author     TEXT    NOT NULL,
-          body       TEXT    NOT NULL,
-          created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
-          updated_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
-        )
-      `);
-      ctx.storage.sql.exec(`
-        CREATE INDEX IF NOT EXISTS idx_notes_item ON notes(item_id)
-      `);
-      ctx.storage.sql.exec(`
-        CREATE TABLE IF NOT EXISTS rsvps (
-          item_id    TEXT NOT NULL,
-          author     TEXT NOT NULL,
-          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
-          PRIMARY KEY (item_id, author)
-        )
-      `);
-      this.migrationReadOnly =
-        (await ctx.storage.get<boolean>(MIGRATION_READ_ONLY_KEY)) ?? false;
-    });
+    ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS notes (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id    TEXT    NOT NULL,
+        author     TEXT    NOT NULL,
+        body       TEXT    NOT NULL,
+        created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+        updated_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+      )
+    `);
+    ctx.storage.sql.exec(`
+      CREATE INDEX IF NOT EXISTS idx_notes_item ON notes(item_id)
+    `);
+    ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS rsvps (
+        item_id    TEXT NOT NULL,
+        author     TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+        PRIMARY KEY (item_id, author)
+      )
+    `);
   }
 
   // --- Read methods used by WebSocket snapshots and exports ---
@@ -75,77 +62,11 @@ export class NotebookDO extends DurableObject<Env> {
     return this.readAllRsvps();
   }
 
-  async migrationStatus(): Promise<NotebookMigrationStatus> {
-    return {
-      read_only: this.migrationReadOnly,
-      note_count: this.readAllNotes().length,
-      rsvp_count: this.readAllRsvps().length,
-    };
-  }
-
-  async setMigrationReadOnly(readOnly: boolean): Promise<void> {
-    await this.ctx.storage.put(MIGRATION_READ_ONLY_KEY, readOnly);
-    this.migrationReadOnly = readOnly;
-    if (readOnly) {
-      for (const ws of this.ctx.getWebSockets()) {
-        ws.close(1012, "Notebook migration");
-      }
-    }
-  }
-
-  async prepareMigration(): Promise<NotebookRows> {
-    await this.setMigrationReadOnly(true);
-    return this.readRows();
-  }
-
-  async importMigration(rows: NotebookRows): Promise<"imported" | "unchanged"> {
-    return this.ctx.storage.transactionSync(() => {
-      const existing = this.readRows();
-      if (existing.notes.length > 0 || existing.rsvps.length > 0) {
-        if (notebookRowsEqual(existing, rows)) return "unchanged";
-        throw new Error("migration destination is not empty");
-      }
-
-      for (const note of rows.notes) {
-        this.ctx.storage.sql.exec(
-          `INSERT INTO notes
-             (id, item_id, author, body, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          note.id,
-          note.item_id,
-          note.author,
-          note.body,
-          note.created_at,
-          note.updated_at,
-        );
-      }
-      for (const rsvp of rows.rsvps) {
-        this.ctx.storage.sql.exec(
-          `INSERT INTO rsvps (item_id, author, created_at)
-           VALUES (?, ?, ?)`,
-          rsvp.item_id,
-          rsvp.author,
-          rsvp.created_at,
-        );
-      }
-
-      if (!notebookRowsEqual(this.readRows(), rows)) {
-        throw new Error("migration verification failed");
-      }
-      return "imported";
-    });
-  }
-
   // --- WebSocket lifecycle ---
 
   override async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
-    }
-    if (this.migrationReadOnly) {
-      return new Response("Notebook migration in progress", {
-        status: 503,
-      });
     }
     const author = request.headers.get("X-User-Email");
     if (!author) {
@@ -171,14 +92,6 @@ export class NotebookDO extends DurableObject<Env> {
     message: string | ArrayBuffer,
   ): Promise<void> {
     if (typeof message !== "string") return;
-    if (this.migrationReadOnly) {
-      this.sendTo(ws, {
-        type: "error",
-        message: "Notebook migration in progress",
-      });
-      ws.close(1012, "Notebook migration");
-      return;
-    }
     const attachment = ws.deserializeAttachment() as { author?: string } | null;
     if (!attachment?.author) {
       // Post-auth an identity can never legitimately be absent; close instead
@@ -299,13 +212,6 @@ export class NotebookDO extends DurableObject<Env> {
         "SELECT item_id, author, created_at FROM rsvps ORDER BY created_at, item_id, author",
       )
       .toArray();
-  }
-
-  private readRows(): NotebookRows {
-    return {
-      notes: this.readAllNotes(),
-      rsvps: this.readAllRsvps(),
-    };
   }
 
   // --- Broadcast to all connected clients ---

@@ -67,10 +67,9 @@ needed by note export.
 ### One team-notebook Durable Object
 
 The `NotebookDO` class represents one conference notebook, with one named
-instance per conference. The scoped AAIC routes still explicitly resolve to the
-historical `"team"` instance until its verified migration to `"aaic-2026"`;
-new conferences use their catalog id. Each instance stores its notes and RSVPs
-in built-in SQLite.
+instance per conference, named with the conference's catalog id. Each instance
+stores its notes and RSVPs in built-in SQLite. AAIC's historical `"team"`
+instance was copied to `"aaic-2026"` and retained as a rollback copy.
 
 Clients connect through a hibernatable WebSocket. The object sends an initial
 snapshot and broadcasts writes to connected clients. The client reconnects with
@@ -191,7 +190,7 @@ a real requirement.
 2. [x] Make conference identity, metadata, timezone handling, local-storage keys,
        titles, and export filenames generic.
 3. [x] Add path-scoped conference routing and conference-scoped API routes.
-4. [ ] Split notebook storage by conference and rename/migrate AAIC's existing
+4. [x] Split notebook storage by conference and rename/migrate AAIC's existing
        Durable Object with a verified backup.
 5. [ ] Add private R2 storage and a guarded publish/promote workflow, then remove
        real conference programs from Worker assets and the working tree. Before
@@ -215,10 +214,10 @@ should revisit them when real constraints or simpler options emerge.
   should remain unless there is a concrete reason to replace them. A producer
   may construct `ConferenceProgram` directly or use a separate adapter; the
   adapter is optional, and the meaningful boundary is validated program JSON.
-- Treat the production notebook rename as a coordinated data migration, not
-  merely a `getByName` edit. Take and retain a snapshot, preserve notes and
-  RSVPs, verify the new object before cutover, and keep a rollback path. The
-  import/cutover mechanism is deliberately deferred until that work begins.
+- The AAIC production notebook migration completed on 2026-07-23. Pre-copy and
+  post-lock snapshots were retained locally; all 28 notes and 81 RSVPs,
+  including IDs and timestamps, were verified in `"aaic-2026"` before cutover.
+  The historical `"team"` object remains intact as the rollback copy.
 - The catalog schema, R2 binding and bucket names, publication CLI, and any
   concurrency guard are step 5 design decisions. The durable conclusions so far
   are private storage, immutable program objects, and promotion by updating the
