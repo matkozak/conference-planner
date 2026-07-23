@@ -63,5 +63,5 @@ change with that adapter.
 The adapter keeps the nested presentation shape, intentionally omits relational
 hints such as `parent_id` and `subsession_ids`, adds conference metadata and
 normalized item kinds, and validates the result as `ConferenceProgram` v1 before
-the generic builder writes the static asset. See `schema/README.md` for the
+the builder writes an R2 publication candidate. See `schema/README.md` for the
 portable contract and publication invariants.

@@ -7,7 +7,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { programContentHash } from "./publication.ts";
 import type { ConferenceProgram } from "../src/shared/program.ts";
 import {
   conferenceProgramJsonSchema,
@@ -39,7 +38,6 @@ function main(): void {
   );
   const program = buildAaicProgram();
   const json = JSON.stringify(program);
-  const hash = programContentHash(json);
   mkdirSync(dirname(output), { recursive: true });
   writeFileSync(output, json);
 
@@ -55,7 +53,7 @@ function main(): void {
     0,
   );
   console.log(
-    `wrote ${output} (${hash}): ${program.days.length} days, ` +
+    `wrote ${output}: ${program.days.length} days, ` +
       `${program.sessions.length} sessions, ${presentations} presentations, ` +
       `${Object.keys(program.people).length} people`,
   );

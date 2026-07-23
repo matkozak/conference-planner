@@ -289,7 +289,7 @@ function validateScheduledItem(
 
   const seenSpeakers = new Set<string>();
   for (const [index, personId] of (item.speaker_ids ?? []).entries()) {
-    if (!(personId in program.people)) {
+    if (!Object.hasOwn(program.people, personId)) {
       issue(
         `${path}.speaker_ids[${index}]`,
         `unknown person id ${JSON.stringify(personId)}`,

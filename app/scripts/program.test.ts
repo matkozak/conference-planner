@@ -51,6 +51,16 @@ describe("ConferenceProgram v1", () => {
     );
   });
 
+  it("does not treat Object prototype properties as people", () => {
+    const input = changed((program) => {
+      const talk = program.sessions[0]?.presentations[0];
+      if (talk) talk.speaker_ids = ["toString"];
+    });
+    expect(() => parseConferenceProgram(input)).toThrow(
+      /unknown person id "toString"/,
+    );
+  });
+
   it("rejects invalid ordering, dates, and item-kind relationships", () => {
     const input = changed((program) => {
       program.days.reverse();
