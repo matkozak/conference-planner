@@ -12,6 +12,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from scripts.aaic_2026.paths import DATA_DIR
+
 
 FIELDS = [
     "Session time",
@@ -173,9 +175,9 @@ def write_csvs(rows: dict[str, list[dict[str, Any]]], outdir: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=Path, default=Path("data/aaic_2026/sessions.json"))
-    parser.add_argument("--people", type=Path, default=Path("data/aaic_2026/people.json"))
-    parser.add_argument("--outdir", type=Path, default=Path("data/aaic_2026"))
+    parser.add_argument("--input", type=Path, default=DATA_DIR / "sessions.json")
+    parser.add_argument("--people", type=Path, default=DATA_DIR / "people.json")
+    parser.add_argument("--outdir", type=Path, default=DATA_DIR)
     args = parser.parse_args()
 
     sessions = json.loads(args.input.read_text(encoding="utf-8"))

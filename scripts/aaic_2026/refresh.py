@@ -20,11 +20,11 @@ from typing import Any
 
 from scripts.aaic_2026.export_presentations import rows_by_date, write_csvs
 from scripts.aaic_2026.export_sqlite import export_sqlite
+from scripts.aaic_2026.paths import DATA_DIR, REFRESH_DIR, REPOSITORY_ROOT
 from scripts.aaic_2026.scrape import write_outputs
 
-ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATA = ROOT / "data" / "aaic_2026"
-DEFAULT_REFRESH_ROOT = ROOT / ".refresh"
+DEFAULT_DATA = DATA_DIR
+DEFAULT_REFRESH_ROOT = REFRESH_DIR
 NOTEBOOK_URL = (
     "https://aaic2026.kozak.ch"
     "/api/conferences/aaic-2026/notebook/export.json"
@@ -388,7 +388,7 @@ def fetch_notebook_snapshot(destination: Path) -> Path:
     try:
         result = subprocess.run(
             command,
-            cwd=ROOT,
+            cwd=REPOSITORY_ROOT,
             check=True,
             stdout=subprocess.PIPE,
             text=True,
@@ -701,7 +701,7 @@ def prepare(args: argparse.Namespace) -> None:
     ]
     if args.resume:
         command.append("--resume")
-    subprocess.run(command, cwd=ROOT, check=True)
+    subprocess.run(command, cwd=REPOSITORY_ROOT, check=True)
     snapshot_path = args.notebook_snapshot
     if snapshot_path is None:
         snapshot_path = fetch_notebook_snapshot(stage / STAGED_NOTEBOOK)

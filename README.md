@@ -3,7 +3,8 @@
 This repository contains two deliberately separate pieces:
 
 1. A Python standard-library scraper and export pipeline for the AAIC 2026
-   EventPilot planner. Its committed JSON dump is the source of truth.
+   EventPilot planner. Its ignored local JSON dump is the ingestion source of
+   truth.
 2. A small multi-conference internal app deployed at
    [conferences.kozak.ch](https://conferences.kozak.ch), implemented as a
    Cloudflare Worker with a Svelte frontend and conference-scoped Durable Object
@@ -19,7 +20,7 @@ root loads AAIC directly.
 
 ## Current data
 
-`data/aaic_2026/` contains the July 10 refresh:
+The ignored local `data/aaic_2026/` workspace contains the July 10 refresh:
 
 | Metric                         | Count |
 | ------------------------------ | ----: |
@@ -29,12 +30,20 @@ root loads AAIC directly.
 | People                         | 6,105 |
 | Detail or people fetch errors  |     0 |
 
-The committed files are:
+The local files are:
 
 - `sessions.json` and `people.json`: source-of-truth scraped data.
 - `sessions.csv`: compact parent-session index (364 lines with its header).
 - `presentations_*.csv`: derived daily planning views.
 - `aaic_2026.sqlite`: derived normalized database.
+
+Real conference material is deliberately excluded from Git. `data/` is the one
+local ingestion workspace: each conference owns its source documents, machine
+extraction work, reviewed structured data, and refresh staging beneath its own
+directory. Small synthetic fixtures used by automated tests remain committed.
+For CTAD, use `data/ctad_2026/source/` for acquired PDFs,
+`data/ctad_2026/work/` for disposable text, OCR, page images, or model output,
+and `data/ctad_2026/extracted/` for reviewed provider-specific structured data.
 
 The integrity suite verifies people references, parent/child relationships,
 categories, duplicate ids, description coverage, and SQLite row counts and
@@ -42,10 +51,10 @@ foreign keys.
 
 ## Controlled program refresh
 
-Never scrape directly into `data/aaic_2026/`. The refresh helper stages a full
-candidate under ignored `.refresh/`, validates it, compares program ids and
-content, and checks removals against a fresh snapshot of notebook notes and
-RSVPs.
+Never scrape directly into the current files under `data/aaic_2026/`. The
+refresh helper stages a full candidate under
+`data/aaic_2026/refreshes/`, validates it, compares program ids and content, and
+checks removals against a fresh snapshot of notebook notes and RSVPs.
 
 `AAIC_COOKIE` must contain a current logged-in EventPilot cookie. It can be
 provided by the ignored local mise configuration; never commit or hard-code it.
@@ -61,13 +70,14 @@ the scrape is interrupted, resume that same directory:
 
 ```bash
 python3 -m scripts.aaic_2026.refresh prepare \
-  --stage ".refresh/{timestamp}" --resume
+  --stage "data/aaic_2026/refreshes/{timestamp}" --resume
 ```
 
 Inspect an existing candidate again:
 
 ```bash
-python3 -m scripts.aaic_2026.refresh inspect ".refresh/{timestamp}"
+python3 -m scripts.aaic_2026.refresh inspect \
+  "data/aaic_2026/refreshes/{timestamp}"
 ```
 
 Each inspection fetches a fresh notebook snapshot through Cloudflare Access.
@@ -83,7 +93,8 @@ does not migrate notebook references.
 Promote an unchanged, reviewed candidate:
 
 ```bash
-python3 -m scripts.aaic_2026.refresh apply ".refresh/{timestamp}"
+python3 -m scripts.aaic_2026.refresh apply \
+  "data/aaic_2026/refreshes/{timestamp}"
 ```
 
 `apply` rechecks candidate and baseline hashes, fetches the notebook immediately
@@ -100,7 +111,9 @@ pnpm run program
 This runs the AAIC/EventPilot adapter and writes
 `.programs/aaic-2026.json`. The scraper dump remains the lossless AAIC source;
 the provider-independent `ConferenceProgram` is the application's input
-boundary.
+boundary. `app/.programs/` is the app-side data-build output directory: its
+validated files are reviewed and passed explicitly to the publisher, but are
+not bundled into the Worker.
 
 Publish only after reviewing that candidate. The publisher requires a
 bucket-scoped R2 access key in `R2_ACCESS_KEY_ID` and
@@ -129,7 +142,8 @@ It uses only the Python standard library.
 
 ```bash
 AAIC_COOKIE='...' python3 -m scripts.aaic_2026.scrape \
-  --date 2026-07-12 --max-sessions 2 --outdir aaic_sample
+  --date 2026-07-12 --max-sessions 2 \
+  --outdir data/aaic_2026/scratch
 ```
 
 Important options:

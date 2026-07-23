@@ -4,11 +4,9 @@ import json
 import sqlite3
 import unittest
 from collections import Counter
-from pathlib import Path
 
+from scripts.aaic_2026.paths import DATA_DIR
 
-ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT / "data" / "aaic_2026"
 SESSIONS_PATH = DATA_DIR / "sessions.json"
 PEOPLE_PATH = DATA_DIR / "people.json"
 SQLITE_PATH = DATA_DIR / "aaic_2026.sqlite"
@@ -21,6 +19,15 @@ def sortable_id(value: str) -> tuple[bool, int | str]:
 class DataIntegrityTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        missing = [
+            path
+            for path in (SESSIONS_PATH, PEOPLE_PATH, SQLITE_PATH)
+            if not path.is_file()
+        ]
+        if missing:
+            raise unittest.SkipTest(
+                f"local AAIC dataset is unavailable: {', '.join(map(str, missing))}"
+            )
         cls.sessions = json.loads(SESSIONS_PATH.read_text(encoding="utf-8"))
         cls.people = json.loads(PEOPLE_PATH.read_text(encoding="utf-8"))
 

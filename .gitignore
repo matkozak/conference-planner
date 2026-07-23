@@ -21,9 +21,8 @@ agenda_export.csv
 agenda_csv_headers.txt
 autocomplete_*.txt
 
-# Small validation runs
-aaic_sample/
-.refresh/
+# Local conference source data, extraction work, and refresh staging
+/data/
 
 # App (app/)
 node_modules/

@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from scripts.aaic_2026.paths import DATA_DIR
+
 
 CONFID = "ALZ19292F861B994564D"
 BASE = "https://eppro01.ativ.me/web"
@@ -836,7 +838,12 @@ def fetch_details(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cookie", default=os.environ.get("AAIC_COOKIE", ""))
-    parser.add_argument("--outdir", type=Path, default=Path("data/aaic_2026"))
+    parser.add_argument(
+        "--outdir",
+        type=Path,
+        required=True,
+        help=f"output directory (canonical data is {DATA_DIR})",
+    )
     parser.add_argument("--date", action="append", dest="dates")
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--sleep", type=float, default=0.15)

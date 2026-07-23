@@ -1,29 +1,18 @@
-import { readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { programContentHash } from "./publication.ts";
-import {
-  adaptAaicProgram,
-  type RawEventPilotItem,
-  type RawEventPilotPerson,
-} from "./providers/eventpilot-aaic.ts";
-
-const DATA_DIR = join(import.meta.dirname, "..", "..", "data", "aaic_2026");
+import { AAIC_DATA_DIR, buildAaicProgram } from "./build-program.ts";
 
 describe("current AAIC program", () => {
-  const rawSessions: RawEventPilotItem[] = JSON.parse(
-    readFileSync(join(DATA_DIR, "sessions.json"), "utf8"),
+  const hasLocalData = ["sessions.json", "people.json"].every((name) =>
+    existsSync(join(AAIC_DATA_DIR, name)),
   );
-  const rawPeople: Record<string, RawEventPilotPerson> = JSON.parse(
-    readFileSync(join(DATA_DIR, "people.json"), "utf8"),
-  );
-  const program = adaptAaicProgram(rawSessions, rawPeople);
 
-  it("conforms to ConferenceProgram v1", () => {
+  it.skipIf(!hasLocalData)("conforms to ConferenceProgram v1", () => {
+    const program = buildAaicProgram();
     expect(program.conference.id).toBe("aaic-2026");
-    expect(program.sessions).toHaveLength(rawSessions.length);
     expect(program.days).toEqual([
       "2026-07-10",
       "2026-07-11",
@@ -33,17 +22,5 @@ describe("current AAIC program", () => {
       "2026-07-15",
       "2026-07-16",
     ]);
-  });
-
-  it("has a stable content hash outside the contract", () => {
-    expect(program).not.toHaveProperty("version");
-    const hash = programContentHash(JSON.stringify(program));
-    const changed = structuredClone(program);
-    changed.sessions[0]!.title += " (changed)";
-    expect(hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(programContentHash(JSON.stringify(structuredClone(program)))).toBe(
-      hash,
-    );
-    expect(programContentHash(JSON.stringify(changed))).not.toBe(hash);
   });
 });

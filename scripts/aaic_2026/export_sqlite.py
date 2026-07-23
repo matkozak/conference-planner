@@ -9,6 +9,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Iterable
 
+from scripts.aaic_2026.paths import DATA_DIR
+
 
 def json_text(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
@@ -304,9 +306,9 @@ def export_sqlite(sessions_path: Path, people_path: Path | None, output_path: Pa
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sessions", type=Path, default=Path("data/aaic_2026/sessions.json"))
-    parser.add_argument("--people", type=Path, default=Path("data/aaic_2026/people.json"))
-    parser.add_argument("--output", type=Path, default=Path("data/aaic_2026/aaic_2026.sqlite"))
+    parser.add_argument("--sessions", type=Path, default=DATA_DIR / "sessions.json")
+    parser.add_argument("--people", type=Path, default=DATA_DIR / "people.json")
+    parser.add_argument("--output", type=Path, default=DATA_DIR / "aaic_2026.sqlite")
     args = parser.parse_args()
 
     people_path = args.people if args.people.exists() else None

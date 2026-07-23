@@ -3,7 +3,8 @@
 Two things live here:
 
 1. **Scraper & data pipeline** (Python, stdlib only) — scrapes the AAIC 2026
-   EventPilot planner into `data/aaic_2026/`. Complete and integrity-tested.
+   EventPilot planner into the ignored local `data/aaic_2026/` workspace.
+   Complete and integrity-tested.
    See `README.md` for endpoints and rerun instructions.
 2. **Conference app** (`app/`, TypeScript, Cloudflare Worker) — a
    multi-conference app for ~10 internal users, currently deployed for AAIC at
@@ -16,7 +17,7 @@ deliberate scraper pipeline, never mutated at runtime.
 ## Layout
 
 - `scripts/` — Python scraper + exporters (stdlib only, keep it that way)
-- `data/aaic_2026/` — the committed dump (JSON is source of truth)
+- `data/` — ignored local conference sources, extraction work, and derived data
 - `tests/` — Python data-integrity, refresh, and scraper-resume tests
 - `app/` — the Worker app (own `package.json`, everything TS)
 - `SCRAPER.md` — EventPilot protocol, normalized data model, and upstream quirks
@@ -35,7 +36,7 @@ lockfile is `pnpm-lock.yaml`, dependency build scripts are allowlisted in
 `package.json` `allowScripts`):
 
 ```bash
-pnpm run program  # rebuild the program asset from ../data/aaic_2026/
+pnpm run program  # build a publish candidate from ../data/aaic_2026/
 pnpm run check    # typecheck (svelte-check + tsc) — run before declaring done
 pnpm run test     # vitest
 pnpm run dev      # vite dev (Worker runs in workerd via @cloudflare/vite-plugin)

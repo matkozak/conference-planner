@@ -20,14 +20,16 @@ import {
 
 const APP_ROOT = join(import.meta.dirname, "..");
 const REPOSITORY_ROOT = join(APP_ROOT, "..");
-const DATA_DIR = join(REPOSITORY_ROOT, "data", "aaic_2026");
+export const AAIC_DATA_DIR = join(REPOSITORY_ROOT, "data", "aaic_2026");
 
-export function buildAaicProgram(): ConferenceProgram {
+export function buildAaicProgram(
+  dataDir: string = AAIC_DATA_DIR,
+): ConferenceProgram {
   const rawSessions: RawEventPilotItem[] = JSON.parse(
-    readFileSync(join(DATA_DIR, "sessions.json"), "utf8"),
+    readFileSync(join(dataDir, "sessions.json"), "utf8"),
   );
   const rawPeople: Record<string, RawEventPilotPerson> = JSON.parse(
-    readFileSync(join(DATA_DIR, "people.json"), "utf8"),
+    readFileSync(join(dataDir, "people.json"), "utf8"),
   );
   return parseConferenceProgram(adaptAaicProgram(rawSessions, rawPeople));
 }
