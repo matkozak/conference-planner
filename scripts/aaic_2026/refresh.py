@@ -18,11 +18,11 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
-from scripts.export_presentations_by_date import rows_by_date, write_csvs
-from scripts.export_sqlite import export_sqlite
-from scripts.scrape_aaic import write_outputs
+from scripts.aaic_2026.export_presentations import rows_by_date, write_csvs
+from scripts.aaic_2026.export_sqlite import export_sqlite
+from scripts.aaic_2026.scrape import write_outputs
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA = ROOT / "data" / "aaic_2026"
 DEFAULT_REFRESH_ROOT = ROOT / ".refresh"
 NOTEBOOK_URL = (
@@ -658,7 +658,7 @@ def print_report_result(candidate_dir: Path, report: dict[str, Any]) -> None:
         f"IDs: {summary['stable_ids']} stable, {summary['added_ids']} added, "
         f"{summary['removed_ids']} removed, {summary['possible_id_reuse']} possible reuse\n"
         f"Promotion blockers: {len(report['blockers'])}\n"
-        f"After review: python3 -m scripts.refresh_aaic apply {candidate_dir}"
+        f"After review: python3 -m scripts.aaic_2026.refresh apply {candidate_dir}"
     )
 
 
@@ -683,7 +683,8 @@ def prepare(args: argparse.Namespace) -> None:
     print(f"Staging refresh in {stage}", flush=True)
     command = [
         sys.executable,
-        str(ROOT / "scripts" / "scrape_aaic.py"),
+        "-m",
+        "scripts.aaic_2026.scrape",
         "--outdir",
         str(stage),
         "--people",

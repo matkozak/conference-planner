@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.refresh_aaic import (
+from scripts.aaic_2026.refresh import (
     apply as apply_refresh,
     build_report,
     fetch_notebook_snapshot,
@@ -97,7 +97,7 @@ class RefreshReportTest(unittest.TestCase):
             )
 
             with patch(
-                "scripts.refresh_aaic.subprocess.run", return_value=completed
+                "scripts.aaic_2026.refresh.subprocess.run", return_value=completed
             ) as run:
                 result = fetch_notebook_snapshot(destination)
 

@@ -53,21 +53,21 @@ provided by the ignored local mise configuration; never commit or hard-code it.
 Prepare a candidate:
 
 ```bash
-python3 -m scripts.refresh_aaic prepare
+python3 -m scripts.aaic_2026.refresh prepare
 ```
 
 The command prints its staging path and the exact eventual `apply` command. If
 the scrape is interrupted, resume that same directory:
 
 ```bash
-python3 -m scripts.refresh_aaic prepare \
+python3 -m scripts.aaic_2026.refresh prepare \
   --stage ".refresh/{timestamp}" --resume
 ```
 
 Inspect an existing candidate again:
 
 ```bash
-python3 -m scripts.refresh_aaic inspect ".refresh/{timestamp}"
+python3 -m scripts.aaic_2026.refresh inspect ".refresh/{timestamp}"
 ```
 
 Each inspection fetches a fresh notebook snapshot through Cloudflare Access.
@@ -83,7 +83,7 @@ does not migrate notebook references.
 Promote an unchanged, reviewed candidate:
 
 ```bash
-python3 -m scripts.refresh_aaic apply ".refresh/{timestamp}"
+python3 -m scripts.aaic_2026.refresh apply ".refresh/{timestamp}"
 ```
 
 `apply` rechecks candidate and baseline hashes, fetches the notebook immediately
@@ -124,11 +124,11 @@ Lower concurrency or increase the interval if EventPilot begins rate-limiting.
 
 ## Direct scraper use
 
-`scripts/scrape_aaic.py` is useful for smoke tests and resuming low-level work.
+`scripts.aaic_2026.scrape` is useful for smoke tests and resuming low-level work.
 It uses only the Python standard library.
 
 ```bash
-AAIC_COOKIE='...' python3 scripts/scrape_aaic.py \
+AAIC_COOKIE='...' python3 -m scripts.aaic_2026.scrape \
   --date 2026-07-12 --max-sessions 2 --outdir aaic_sample
 ```
 
@@ -153,7 +153,7 @@ the environment variable avoids leaving credentials in shell history.
 Regenerate daily CSVs:
 
 ```bash
-python3 scripts/export_presentations_by_date.py \
+python3 -m scripts.aaic_2026.export_presentations \
   --input data/aaic_2026/sessions.json \
   --people data/aaic_2026/people.json \
   --outdir data/aaic_2026
@@ -162,7 +162,7 @@ python3 scripts/export_presentations_by_date.py \
 Regenerate SQLite:
 
 ```bash
-python3 scripts/export_sqlite.py \
+python3 -m scripts.aaic_2026.export_sqlite \
   --sessions data/aaic_2026/sessions.json \
   --people data/aaic_2026/people.json \
   --output data/aaic_2026/aaic_2026.sqlite

@@ -7,7 +7,7 @@ from collections import Counter
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data" / "aaic_2026"
 SESSIONS_PATH = DATA_DIR / "sessions.json"
 PEOPLE_PATH = DATA_DIR / "people.json"

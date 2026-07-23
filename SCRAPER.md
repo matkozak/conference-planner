@@ -21,7 +21,7 @@ The upstream API is not documented:
 
 Responses are frequently an XML wrapper containing escaped XML, itself
 containing escaped HTML cells. The scraper intentionally uses a tolerant decoder
-rather than strict XML parsing. See `scripts/scrape_aaic.py` for the exact form
+rather than strict XML parsing. See `scripts/aaic_2026/scrape.py` for the exact form
 fields, ordering, pagination, and normalization.
 
 ## Normalized data model

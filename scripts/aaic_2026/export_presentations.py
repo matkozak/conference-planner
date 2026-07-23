@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export one presentation-level CSV per conference date."""
+"""Export one AAIC presentation-level CSV per conference date."""
 
 from __future__ import annotations
 

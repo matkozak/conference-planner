@@ -7,7 +7,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.scrape_aaic import attach_presentations, fetch_details, presentation_work
+from scripts.aaic_2026.scrape import (
+    attach_presentations,
+    fetch_details,
+    presentation_work,
+)
 
 
 class PresentationResumeTest(unittest.TestCase):
@@ -71,7 +75,8 @@ class PresentationResumeTest(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as tmp,
             patch(
-                "scripts.scrape_aaic.fetch_detail_paced", side_effect=completed_detail
+                "scripts.aaic_2026.scrape.fetch_detail_paced",
+                side_effect=completed_detail,
             ) as fetch,
         ):
             with contextlib.redirect_stdout(io.StringIO()):
