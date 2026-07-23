@@ -11,6 +11,11 @@ This repository contains two deliberately separate pieces:
 The app never changes the scraped program. Program refreshes are explicit,
 reviewed operations performed by the scraper tooling.
 
+The only production hostname today is `aaic2026.kozak.ch`. Its root path loads
+AAIC directly for compatibility; `/aaic-2026/` loads the same conference. The
+conference landing page is implemented but will become the production root only
+when `conferences.kozak.ch` is added.
+
 ## Current data
 
 `data/aaic_2026/` contains the July 10 refresh:

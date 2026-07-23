@@ -20,8 +20,10 @@ the `conferences.kozak.ch` deployment.
   team's Zurich home timezone, stored as a per-device preference.
 - CSV note export joined with program titles, and a JSON notebook snapshot used
   by the guarded refresh workflow.
-- A root conference catalog plus conference paths such as `/aaic-2026/`; the
-  historical AAIC hostname continues to serve AAIC at `/`.
+- A root conference catalog plus conference paths such as `/aaic-2026/`. The
+  catalog UI is implemented but is not exposed at a production root until
+  `conferences.kozak.ch` is deployed; the historical AAIC hostname continues to
+  serve AAIC directly at `/`.
 
 ## Current architecture
 
@@ -31,9 +33,11 @@ A single TypeScript Worker serves static assets, routes the small Hono API, and
 binds the notebook Durable Object. Cloudflare's Vite plugin builds the Svelte 5
 frontend and Worker together.
 
-The Access-protected custom domain is intended to be the only production
-ingress. `workers.dev` and preview URLs are disabled in `wrangler.jsonc` so they
-cannot bypass Access.
+The Access-protected custom domain is the only production ingress. `workers.dev`
+and preview URLs are disabled in `wrangler.jsonc` so they cannot bypass Access.
+Currently only `aaic2026.kozak.ch` is bound. Its root is a client-side
+compatibility alias for AAIC rather than an HTTP redirect; both `/` and
+`/aaic-2026/` serve the same SPA and resolve to the same catalog entry.
 
 The Worker validates the `Cf-Access-Jwt-Assertion` signature, issuer, and
 application audience before taking identity from its email claim. Validation
@@ -64,7 +68,7 @@ loads cache-friendly, and all browsing and search happen client-side. There is
 no D1 database: the Worker reads its static asset for the one server-side join
 needed by note export.
 
-### One team-notebook Durable Object
+### Conference-scoped notebook Durable Objects
 
 The `NotebookDO` class represents one conference notebook, with one named
 instance per conference, named with the conference's catalog id. Each instance
@@ -116,9 +120,8 @@ Durable Object instances.
 
 #### Stable program contract
 
-Define a versioned, provider-independent `ConferenceProgram` schema as the only
-input the app accepts. It should add conference identity and presentation
-metadata to the current useful read model, including:
+The versioned, provider-independent `ConferenceProgram` schema is the only
+program input the app accepts. It includes:
 
 - a schema version distinct from the content hash;
 - stable conference id, display names, dates, and IANA venue timezone;
@@ -127,10 +130,10 @@ metadata to the current useful read model, including:
 - unique conference-local item ids and valid person references; and
 - a documented, sanitized representation for formatted descriptions.
 
-Validate both structure and cross-record invariants before publication: unique
-ids, references, dates, ordering, and safe HTML. Keep the nested JSON shape
-optimized for whole-program client browsing and search. A normalized ingestion
-contract does not require a relational runtime database.
+The build validates structure and cross-record invariants before producing an
+asset: unique ids, references, dates, ordering, and safe HTML. The nested JSON
+shape remains optimized for whole-program client browsing and search. A
+normalized ingestion contract does not require a relational runtime database.
 
 Scrapers and provider adapters may remain source-specific, but their dependency
 direction is one-way:
@@ -150,6 +153,13 @@ static assets or Git. This keeps program data out of a potentially public app
 repository and decouples data publication from Worker deployment. Do not enable
 a public bucket domain or `r2.dev` access.
 
+Today, `app/scripts/build-program.ts` is AAIC-specific: it invokes the
+EventPilot adapter, writes `app/public/program.<hash>.json`, and generates
+`src/shared/generated/program-meta.ts`. The checked-in catalog is built from
+that generated metadata, and the Worker reads the program through its `ASSETS`
+binding. Phase 5 replaces this publication/storage path, not the
+`ConferenceProgram` contract, provider adapters, or notebook storage.
+
 Use immutable, content-addressed keys plus a small catalog, conceptually:
 
 ```text
@@ -166,17 +176,22 @@ API. Use immutable browser caching for content-addressed programs and short or
 revalidated caching for the catalog; shared public caching is unnecessary for
 this small private audience.
 
+The publishing entry point should accept an already constructed
+`ConferenceProgram`, validate it with the shared parser, derive its
+content-addressed key, upload it, and promote the catalog only after the object
+is readable. Provider-specific construction stays outside that generic
+publisher.
+
 Keep a synthetic fixture in Git for development and tests. Local development
 may load an explicitly configured local program file or local R2 bucket, but
 must not require committing a real conference dump.
 
 #### Conference-scoped user data
 
-Keep notes and RSVPs in SQLite-backed Durable Objects, with one object per
-conference. Rename/migrate the existing AAIC object from the historical
-`"team"` name to `"aaic-2026"`; preserve and verify its notebook data as part of
-that migration. New conferences use their slug as the object name from the
-start.
+Notes and RSVPs remain in SQLite-backed Durable Objects, with one object per
+conference and the conference slug as its name. AAIC has been migrated from the
+historical `"team"` object to `"aaic-2026"` with its data verified; the old
+object remains as a rollback copy.
 
 Do not move immutable program data or notebook data into D1 without a concrete
 query need. Reconsider D1 only if server-side cross-conference search,
@@ -218,10 +233,11 @@ should revisit them when real constraints or simpler options emerge.
   post-lock snapshots were retained locally; all 28 notes and 81 RSVPs,
   including IDs and timestamps, were verified in `"aaic-2026"` before cutover.
   The historical `"team"` object remains intact as the rollback copy.
-- The catalog schema, R2 binding and bucket names, publication CLI, and any
-  concurrency guard are step 5 design decisions. The durable conclusions so far
-  are private storage, immutable program objects, and promotion by updating the
-  catalog last.
+- Start step 5 by agreeing the catalog schema, R2 binding and bucket names,
+  publication CLI, and concurrent-promotion guard. Those are publication-layer
+  decisions and should not leak into `ConferenceProgram`. The durable
+  conclusions are private storage, immutable program objects, and promotion by
+  updating the catalog last.
 - CTAD currently publishes its program as a PDF. Start with the simplest
   extraction that works—possibly `pdftotext` plus layout/regex heuristics—and
   add OCR or a VLM-assisted segmenter only if the document defeats that

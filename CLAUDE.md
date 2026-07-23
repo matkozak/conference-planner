@@ -1,12 +1,13 @@
-# AAIC 2026 — scraper + conference app
+# AAIC 2026 scraper + multi-conference app
 
 Two things live here:
 
 1. **Scraper & data pipeline** (Python, stdlib only) — scrapes the AAIC 2026
    EventPilot planner into `data/aaic_2026/`. Complete and integrity-tested.
    See `README.md` for endpoints and rerun instructions.
-2. **Conference app** (`app/`, TypeScript, Cloudflare Worker) — a better
-   conference app for ~10 internal users at `aaic2026.kozak.ch`.
+2. **Conference app** (`app/`, TypeScript, Cloudflare Worker) — a
+   multi-conference app for ~10 internal users, currently deployed for AAIC at
+   `aaic2026.kozak.ch`.
    See `ROADMAP.md` for current architecture and open work.
 
 The scraped data is **immutable to the app**: refreshed only through the
@@ -51,8 +52,9 @@ pnpm run types    # regenerate worker-configuration.d.ts after wrangler.jsonc ch
   `app/src/shared/` and are imported by both Worker and frontend — never
   duplicate a type across that boundary.
 - Dependencies: minimal and mature. Justify each new one in the PR/commit.
-- Identity currently comes from the Cloudflare Access email header; JWT
-  validation is an explicit `ROADMAP.md` item. The app has no auth UI.
+- The Worker validates the Cloudflare Access JWT signature, issuer, and
+  application audience, then uses its email claim as identity. The app has no
+  auth UI.
 - Secrets/cookies never committed. The EventPilot cookie comes from
   `AAIC_COOKIE` env only.
 
