@@ -15,7 +15,6 @@ type NoteRow = Record<string, SqlStorageValue> & {
 type RsvpRow = Record<string, SqlStorageValue> & {
   item_id: string;
   author: string;
-  created_at: string;
 };
 
 /**
@@ -29,37 +28,43 @@ type RsvpRow = Record<string, SqlStorageValue> & {
 export class NotebookDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS notes (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_id    TEXT    NOT NULL,
-        author     TEXT    NOT NULL,
-        body       TEXT    NOT NULL,
-        created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
-        updated_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
-      )
-    `);
-    ctx.storage.sql.exec(`
-      CREATE INDEX IF NOT EXISTS idx_notes_item ON notes(item_id)
-    `);
-    ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS rsvps (
-        item_id    TEXT NOT NULL,
-        author     TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
-        PRIMARY KEY (item_id, author)
-      )
-    `);
+    ctx.blockConcurrencyWhile(async () => {
+      ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS notes (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          item_id    TEXT    NOT NULL,
+          author     TEXT    NOT NULL,
+          body       TEXT    NOT NULL,
+          created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+          updated_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+        )
+      `);
+      ctx.storage.sql.exec(`
+        CREATE INDEX IF NOT EXISTS idx_notes_item ON notes(item_id)
+      `);
+      ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS rsvps (
+          item_id    TEXT NOT NULL,
+          author     TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+          PRIMARY KEY (item_id, author)
+        )
+      `);
+    });
   }
 
   // --- Read methods used by WebSocket snapshots and exports ---
 
   async getAllNotes(): Promise<NoteRow[]> {
-    return this.readAllNotes();
+    return this.ctx.storage.sql
+      .exec<NoteRow>("SELECT * FROM notes ORDER BY created_at")
+      .toArray();
   }
 
   async getAllRsvps(): Promise<RsvpRow[]> {
-    return this.readAllRsvps();
+    return this.ctx.storage.sql
+      .exec<RsvpRow>("SELECT item_id, author FROM rsvps ORDER BY created_at")
+      .toArray();
   }
 
   // --- WebSocket lifecycle ---
@@ -198,20 +203,6 @@ export class NotebookDO extends DurableObject<Env> {
     if (changed.length > 0) {
       this.broadcast({ type: "rsvp:set", item_id, author, going });
     }
-  }
-
-  private readAllNotes(): NoteRow[] {
-    return this.ctx.storage.sql
-      .exec<NoteRow>("SELECT * FROM notes ORDER BY created_at, id")
-      .toArray();
-  }
-
-  private readAllRsvps(): RsvpRow[] {
-    return this.ctx.storage.sql
-      .exec<RsvpRow>(
-        "SELECT item_id, author, created_at FROM rsvps ORDER BY created_at, item_id, author",
-      )
-      .toArray();
   }
 
   // --- Broadcast to all connected clients ---

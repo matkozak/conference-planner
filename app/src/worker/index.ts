@@ -3,9 +3,9 @@ import { Hono } from "hono";
 // Re-export the DO class so wrangler can discover it.
 export { NotebookDO } from "./notebook";
 import type { NotebookDO } from "./notebook";
+import { conferenceById } from "../shared/catalog";
 import type { ConferenceProgram } from "../shared/program";
 import { accessAuth, type AppEnv } from "./access";
-import { runtimeConference } from "./conferences";
 import { notebookSnapshot } from "./snapshot";
 
 // The generated Env has NOTEBOOK: DurableObjectNamespace (untyped).
@@ -30,12 +30,12 @@ app.get("/api/health", (c) => c.json({ ok: true, user: c.get("userEmail") }));
 
 // --- Conference-scoped notebook WebSocket upgrade ---
 app.get("/api/conferences/:conferenceId/ws", (c) => {
-  const conference = runtimeConference(c.req.param("conferenceId"));
+  const conference = conferenceById(c.req.param("conferenceId"));
   if (!conference) return c.notFound();
   if (c.req.header("Upgrade") !== "websocket") {
     return c.text("Expected WebSocket upgrade", 426);
   }
-  const stub = c.env.NOTEBOOK.getByName(conference.notebook_name);
+  const stub = c.env.NOTEBOOK.getByName(conference.id);
   // Forward the request with the user email attached so the DO can read it.
   const headers = new Headers(c.req.raw.headers);
   headers.set("X-User-Email", c.get("userEmail"));
@@ -44,37 +44,32 @@ app.get("/api/conferences/:conferenceId/ws", (c) => {
 
 // --- Portable backup + refresh-safety input (the whole app is Access-protected) ---
 app.get("/api/conferences/:conferenceId/notebook/export.json", async (c) => {
-  const conference = runtimeConference(c.req.param("conferenceId"));
+  const conference = conferenceById(c.req.param("conferenceId"));
   if (!conference) return c.notFound();
-  const stub = c.env.NOTEBOOK.getByName(conference.notebook_name);
+  const stub = c.env.NOTEBOOK.getByName(conference.id);
   const [notes, rsvps] = await Promise.all([
     stub.getAllNotes(),
     stub.getAllRsvps(),
   ]);
   return c.json(
-    notebookSnapshot(
-      conference.catalog.id,
-      conference.catalog.program_hash,
-      notes,
-      rsvps,
-    ),
+    notebookSnapshot(conference.id, conference.program_hash, notes, rsvps),
     200,
     {
-      "Content-Disposition": `attachment; filename="${conference.catalog.id}-notebook-${new Date().toISOString().slice(0, 10)}.json"`,
+      "Content-Disposition": `attachment; filename="${conference.id}-notebook-${new Date().toISOString().slice(0, 10)}.json"`,
     },
   );
 });
 
 // --- CSV export of all notes joined with program item titles ---
 app.get("/api/conferences/:conferenceId/notes/export.csv", async (c) => {
-  const conference = runtimeConference(c.req.param("conferenceId"));
+  const conference = conferenceById(c.req.param("conferenceId"));
   if (!conference) return c.notFound();
-  const stub = c.env.NOTEBOOK.getByName(conference.notebook_name);
+  const stub = c.env.NOTEBOOK.getByName(conference.id);
   const [notes, program] = await Promise.all([
     stub.getAllNotes(),
-    c.env.ASSETS.fetch(
-      new URL(conference.catalog.program_path, c.req.url),
-    ).then((r) => r.json() as Promise<ConferenceProgram>),
+    c.env.ASSETS.fetch(new URL(conference.program_path, c.req.url)).then(
+      (r) => r.json() as Promise<ConferenceProgram>,
+    ),
   ]);
 
   // item id → its title and the title of the containing session
@@ -106,7 +101,7 @@ app.get("/api/conferences/:conferenceId/notes/export.csv", async (c) => {
   // UTF-8 BOM so Excel decodes correctly (this team will write "Aβ")
   return c.body("\u{FEFF}" + [csvHeader, ...rows].join("\r\n"), 200, {
     "Content-Type": "text/csv; charset=utf-8",
-    "Content-Disposition": `attachment; filename="${conference.catalog.id}-notes-${new Date().toISOString().slice(0, 10)}.csv"`,
+    "Content-Disposition": `attachment; filename="${conference.id}-notes-${new Date().toISOString().slice(0, 10)}.csv"`,
   });
 });
 

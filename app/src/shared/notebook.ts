@@ -13,7 +13,6 @@ export interface Note {
 export interface Rsvp {
   item_id: string;
   author: string;
-  created_at: string;
 }
 
 /** Downloadable safety snapshot used before a program refresh. */
