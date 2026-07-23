@@ -95,11 +95,11 @@ duplicate server-domain types or introduce a second state framework.
 
 ## Roadmap
 
-### Generalize into one multi-conference app
+### Multi-conference app — shipped
 
-Turn the AAIC app into a single conference product at
-`conferences.kozak.ch`, with one repository and one Worker deployment. A
-conference slug is the top-level product boundary:
+The AAIC app is now a single conference product at `conferences.kozak.ch`, with
+one repository and one Worker deployment. A conference slug is the top-level
+product boundary:
 
 ```text
 conferences.kozak.ch/
@@ -110,14 +110,14 @@ conferences.kozak.ch/adpd-2027/
 
 Keep the existing hash routes inside that boundary for now, for example
 `/ctad-2026/#/day/2026-11-10`. The root route lists current, upcoming, and past
-conferences. Keep `aaic2026.kozak.ch` as a compatibility redirect or alias.
+conferences. `aaic2026.kozak.ch` is a temporary compatibility alias.
 
 Scope every notebook API route explicitly by conference, for example
 `/api/conferences/ctad-2026/ws`. Resolve the slug through a finite conference
 catalog before accessing storage; arbitrary URL slugs must not create arbitrary
 Durable Object instances.
 
-#### Stable program contract
+#### Stable program contract — complete
 
 The versioned, provider-independent `ConferenceProgram` schema is the only
 program input the app accepts. It includes:
@@ -145,7 +145,7 @@ The app must not import raw scraper shapes. This boundary can live in the same
 repository initially; moving ingestion code elsewhere later should not change
 the contract.
 
-#### Independent, private program publishing
+#### Independent, private program publishing — complete
 
 Canonical conference programs now live in a private R2 bucket rather than
 Worker static assets. This decouples data publication from Worker deployment.
@@ -169,7 +169,7 @@ Keep a synthetic fixture in Git for development and tests. Local development
 uses Wrangler's remote R2 binding so it exercises the real private catalog and
 programs; the synthetic program remains the deterministic test fixture.
 
-#### Conference-scoped user data
+#### Conference-scoped user data — complete
 
 Notes and RSVPs remain in SQLite-backed Durable Objects, with one object per
 conference and the conference slug as its name. AAIC has been migrated from the
@@ -181,7 +181,7 @@ query need. Reconsider D1 only if server-side cross-conference search,
 centralized reporting, partial program loading, or live program editing becomes
 a real requirement.
 
-#### Suggested delivery sequence
+#### Migration delivery status
 
 1. [x] Define the `ConferenceProgram` v1 schema and validation, with a synthetic
        fixture and the current AAIC program as the first conformance input.
@@ -191,14 +191,29 @@ a real requirement.
 4. [x] Split notebook storage by conference and rename/migrate AAIC's existing
        Durable Object with a verified backup.
 5. [x] Add private R2 storage and a guarded publish/promote workflow, and remove
-       real conference programs from Worker assets. Before making the repository
-       public, remove the lossless AAIC dump from the working tree and publish
-       from a clean history or deliberately rewrite the existing history;
-       deleting it in a later commit does not remove it from earlier commits.
+       real conference programs from Worker assets.
 6. [x] Deploy at `conferences.kozak.ch` and temporarily retain the AAIC hostname
-       as a compatibility route.
-7. [ ] Build the CTAD importer against the stable contract; adapt the schema only
-       for genuine cross-conference concepts, not provider quirks.
+       as a compatibility route. The authenticated production site was verified
+       after launch on 2026-07-23.
+
+#### Post-launch cleanup
+
+- [ ] After a short compatibility window, retire `aaic2026.kozak.ch`: remove it
+      from the Worker routes and Access application, remove the legacy-host
+      routing code and tests, deploy, and verify Cloudflare removed its managed
+      DNS record.
+- [ ] Before making the repository public, remove the lossless
+      `data/aaic_2026/` dump from the working tree and publish from a clean
+      history or deliberately rewrite the existing history. Deleting it in a
+      later commit does not remove it from earlier commits.
+- Keep the historical `"team"` Durable Object as a rollback copy for now.
+  Deleting it is optional and has no urgency; do so only after deliberately
+  deciding the rollback is no longer useful.
+
+#### Next substantive work
+
+- [ ] Build the CTAD importer against the stable contract. Adapt the schema only
+      for genuine cross-conference concepts, not provider quirks.
 
 #### Notes from prior design work
 
@@ -221,9 +236,6 @@ should revisit them when real constraints or simpler options emerge.
   extraction that works—possibly `pdftotext` plus layout/regex heuristics—and
   add OCR or a VLM-assisted segmenter only if the document defeats that
   approach. The validated program contract remains the handoff either way.
-- Domain, Access, and production-route changes in step 6 are coordinated
-  operations and should be checked against the current Cloudflare configuration
-  at implementation time.
 
 ### WebSocket-only synchronization
 
