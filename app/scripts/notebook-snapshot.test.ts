@@ -17,7 +17,13 @@ describe("notebookSnapshot", () => {
           updated_at: "2026-07-10T12:00:00Z",
         },
       ],
-      [{ item_id: "S1", author: "ada@example.com" }],
+      [
+        {
+          item_id: "S1",
+          author: "ada@example.com",
+          created_at: "2026-07-10T12:15:00Z",
+        },
+      ],
       "2026-07-10T12:30:00Z",
     );
 
@@ -26,7 +32,13 @@ describe("notebookSnapshot", () => {
       program_version: "abc12345",
       exported_at: "2026-07-10T12:30:00Z",
       notes: [expect.objectContaining({ item_id: "P1" })],
-      rsvps: [{ item_id: "S1", author: "ada@example.com" }],
+      rsvps: [
+        {
+          item_id: "S1",
+          author: "ada@example.com",
+          created_at: "2026-07-10T12:15:00Z",
+        },
+      ],
     });
   });
 });

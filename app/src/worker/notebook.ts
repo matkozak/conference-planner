@@ -1,6 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
 
 import type { ClientMsg, ServerMsg } from "../shared/notebook";
+import {
+  notebookRowsEqual,
+  type NotebookMigrationStatus,
+  type NotebookRows,
+} from "./notebook-migration";
 
 /** Row shape returned by SQLite — matches Note but satisfies SqlStorageValue. */
 type NoteRow = Record<string, SqlStorageValue> & {
@@ -15,7 +20,10 @@ type NoteRow = Record<string, SqlStorageValue> & {
 type RsvpRow = Record<string, SqlStorageValue> & {
   item_id: string;
   author: string;
+  created_at: string;
 };
+
+const MIGRATION_READ_ONLY_KEY = "migration:read-only";
 
 /**
  * One conference team's shared notebook. Each named instance holds every note
@@ -26,6 +34,8 @@ type RsvpRow = Record<string, SqlStorageValue> & {
  * time from the Access JWT validated by the outer Worker.
  */
 export class NotebookDO extends DurableObject<Env> {
+  private migrationReadOnly = false;
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
@@ -50,21 +60,80 @@ export class NotebookDO extends DurableObject<Env> {
           PRIMARY KEY (item_id, author)
         )
       `);
+      this.migrationReadOnly =
+        (await ctx.storage.get<boolean>(MIGRATION_READ_ONLY_KEY)) ?? false;
     });
   }
 
   // --- Read methods used by WebSocket snapshots and exports ---
 
   async getAllNotes(): Promise<NoteRow[]> {
-    return this.ctx.storage.sql
-      .exec<NoteRow>("SELECT * FROM notes ORDER BY created_at")
-      .toArray();
+    return this.readAllNotes();
   }
 
   async getAllRsvps(): Promise<RsvpRow[]> {
-    return this.ctx.storage.sql
-      .exec<RsvpRow>("SELECT item_id, author FROM rsvps ORDER BY created_at")
-      .toArray();
+    return this.readAllRsvps();
+  }
+
+  async migrationStatus(): Promise<NotebookMigrationStatus> {
+    return {
+      read_only: this.migrationReadOnly,
+      note_count: this.readAllNotes().length,
+      rsvp_count: this.readAllRsvps().length,
+    };
+  }
+
+  async setMigrationReadOnly(readOnly: boolean): Promise<void> {
+    await this.ctx.storage.put(MIGRATION_READ_ONLY_KEY, readOnly);
+    this.migrationReadOnly = readOnly;
+    if (readOnly) {
+      for (const ws of this.ctx.getWebSockets()) {
+        ws.close(1012, "Notebook migration");
+      }
+    }
+  }
+
+  async prepareMigration(): Promise<NotebookRows> {
+    await this.setMigrationReadOnly(true);
+    return this.readRows();
+  }
+
+  async importMigration(rows: NotebookRows): Promise<"imported" | "unchanged"> {
+    return this.ctx.storage.transactionSync(() => {
+      const existing = this.readRows();
+      if (existing.notes.length > 0 || existing.rsvps.length > 0) {
+        if (notebookRowsEqual(existing, rows)) return "unchanged";
+        throw new Error("migration destination is not empty");
+      }
+
+      for (const note of rows.notes) {
+        this.ctx.storage.sql.exec(
+          `INSERT INTO notes
+             (id, item_id, author, body, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          note.id,
+          note.item_id,
+          note.author,
+          note.body,
+          note.created_at,
+          note.updated_at,
+        );
+      }
+      for (const rsvp of rows.rsvps) {
+        this.ctx.storage.sql.exec(
+          `INSERT INTO rsvps (item_id, author, created_at)
+           VALUES (?, ?, ?)`,
+          rsvp.item_id,
+          rsvp.author,
+          rsvp.created_at,
+        );
+      }
+
+      if (!notebookRowsEqual(this.readRows(), rows)) {
+        throw new Error("migration verification failed");
+      }
+      return "imported";
+    });
   }
 
   // --- WebSocket lifecycle ---
@@ -72,6 +141,11 @@ export class NotebookDO extends DurableObject<Env> {
   override async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
+    }
+    if (this.migrationReadOnly) {
+      return new Response("Notebook migration in progress", {
+        status: 503,
+      });
     }
     const author = request.headers.get("X-User-Email");
     if (!author) {
@@ -97,6 +171,14 @@ export class NotebookDO extends DurableObject<Env> {
     message: string | ArrayBuffer,
   ): Promise<void> {
     if (typeof message !== "string") return;
+    if (this.migrationReadOnly) {
+      this.sendTo(ws, {
+        type: "error",
+        message: "Notebook migration in progress",
+      });
+      ws.close(1012, "Notebook migration");
+      return;
+    }
     const attachment = ws.deserializeAttachment() as { author?: string } | null;
     if (!attachment?.author) {
       // Post-auth an identity can never legitimately be absent; close instead
@@ -203,6 +285,27 @@ export class NotebookDO extends DurableObject<Env> {
     if (changed.length > 0) {
       this.broadcast({ type: "rsvp:set", item_id, author, going });
     }
+  }
+
+  private readAllNotes(): NoteRow[] {
+    return this.ctx.storage.sql
+      .exec<NoteRow>("SELECT * FROM notes ORDER BY created_at, id")
+      .toArray();
+  }
+
+  private readAllRsvps(): RsvpRow[] {
+    return this.ctx.storage.sql
+      .exec<RsvpRow>(
+        "SELECT item_id, author, created_at FROM rsvps ORDER BY created_at, item_id, author",
+      )
+      .toArray();
+  }
+
+  private readRows(): NotebookRows {
+    return {
+      notes: this.readAllNotes(),
+      rsvps: this.readAllRsvps(),
+    };
   }
 
   // --- Broadcast to all connected clients ---
