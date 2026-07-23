@@ -20,7 +20,6 @@
     // `directory` is intentionally absent: the Cloudflare Vite plugin points it
     // at the client build output automatically.
     "not_found_handling": "single-page-application",
-    "binding": "ASSETS",
     "run_worker_first": ["/api/*"],
   },
   "observability": {
