@@ -1,195 +1,87 @@
-# Conference app and AAIC 2026 program data
+# Conference planner
 
-This repository contains two deliberately separate pieces:
+This repository contains a small private web app for planning conference
+attendance. Team members can browse a program, search sessions and
+presentations, RSVP, share notes, and view personal or team schedules.
 
-1. A Python standard-library scraper and export pipeline for the AAIC 2026
-   EventPilot planner. Its ignored local JSON dump is the ingestion source of
-   truth.
-2. A small multi-conference internal app deployed at
-   [conferences.kozak.ch](https://conferences.kozak.ch), implemented as a
-   Cloudflare Worker with a Svelte frontend and conference-scoped Durable Object
-   notebooks.
+The app currently serves AAIC 2026 and is designed to accept other conferences
+without teaching the frontend about each source format. CTAD 2026 is next.
 
-The app never changes the scraped program. Program refreshes are explicit,
-reviewed operations performed by the scraper tooling.
+## How it fits together
 
-The production root lists the conference catalog;
-`conferences.kozak.ch/aaic-2026/` opens AAIC directly. The historical
-`aaic2026.kozak.ch` hostname temporarily remains as a compatibility alias whose
-root loads AAIC directly.
+Conference programs are built outside the running app:
 
-## Current data
-
-The ignored local `data/aaic_2026/` workspace contains the July 10 refresh:
-
-| Metric                         | Count |
-| ------------------------------ | ----: |
-| Parent sessions                |   363 |
-| Parent sessions with locations |   361 |
-| Nested presentations           | 7,915 |
-| People                         | 6,105 |
-| Detail or people fetch errors  |     0 |
-
-The local files are:
-
-- `sessions.json` and `people.json`: source-of-truth scraped data.
-- `sessions.csv`: compact parent-session index (364 lines with its header).
-- `presentations_*.csv`: derived daily planning views.
-- `aaic_2026.sqlite`: derived normalized database.
-
-Real conference material is deliberately excluded from Git. `data/` is the one
-local ingestion workspace: each conference owns its source documents, machine
-extraction work, reviewed structured data, and refresh staging beneath its own
-directory. Small synthetic fixtures used by automated tests remain committed.
-For CTAD, use `data/ctad_2026/source/` for acquired PDFs,
-`data/ctad_2026/work/` for disposable text, OCR, page images, or model output,
-and `data/ctad_2026/extracted/` for reviewed provider-specific structured data.
-
-The integrity suite verifies people references, parent/child relationships,
-categories, duplicate ids, description coverage, and SQLite row counts and
-foreign keys.
-
-## Controlled program refresh
-
-Never scrape directly into the current files under `data/aaic_2026/`. The
-refresh helper stages a full candidate under
-`data/aaic_2026/refreshes/`, validates it, compares program ids and content, and
-checks removals against a fresh snapshot of notebook notes and RSVPs.
-
-`AAIC_COOKIE` must contain a current logged-in EventPilot cookie. It can be
-provided by the ignored local mise configuration; never commit or hard-code it.
-
-Prepare a candidate:
-
-```bash
-python3 -m scripts.aaic_2026.refresh prepare
+```text
+local source or scrape
+  -> source-specific extraction
+  -> validated ConferenceProgram JSON
+  -> private R2 storage
+  -> conference app
 ```
 
-The command prints its staging path and the exact eventual `apply` command. If
-the scrape is interrupted, resume that same directory:
+Real conference source material and extraction work live in the ignored local
+`data/` directory. Validated publication candidates are written to the ignored
+`app/.programs/` directory. Small synthetic fixtures remain in Git for tests.
+
+The deployed app is one Cloudflare Worker:
+
+- Svelte provides the browser interface.
+- Hono routes the API.
+- Private R2 stores immutable conference programs and the conference catalog.
+- One SQLite-backed Durable Object per conference stores notes and RSVPs.
+- Cloudflare Access protects production and supplies the user's identity.
+
+Programs use the provider-independent `ConferenceProgram` contract in
+`app/src/shared/program.ts`. Source-specific code may change freely on its side
+of that boundary; the browser and Worker never consume raw scraper or
+extraction formats.
+
+## Repository layout
+
+- `app/` — Svelte frontend, Worker, shared TypeScript, program adapters, and
+  publishing tools
+- `scripts/` — source-specific Python ingestion tools
+- `data/` — ignored local source files, extraction work, and derived data
+- `tests/` — Python ingestion and data-integrity tests
+- `schema/` — portable `ConferenceProgram` schema and invariant notes
+- `ROADMAP.md` — unfinished work only
+
+AAIC's scraper, refresh workflow, upstream protocol notes, and commands live in
+[`scripts/aaic_2026/README.md`](scripts/aaic_2026/README.md).
+
+## Useful commands
+
+Run the Python suite from the repository root:
 
 ```bash
-python3 -m scripts.aaic_2026.refresh prepare \
-  --stage "data/aaic_2026/refreshes/{timestamp}" --resume
+python3 -m unittest
 ```
 
-Inspect an existing candidate again:
+Run app commands from `app/` using pnpm:
 
 ```bash
-python3 -m scripts.aaic_2026.refresh inspect \
-  "data/aaic_2026/refreshes/{timestamp}"
+pnpm install      # install pinned dependencies
+pnpm run check    # Svelte and TypeScript checks
+pnpm run test     # Vitest
+pnpm run dev      # local Vite/workerd development
+pnpm run build    # production build
+pnpm run deploy   # build and deploy the Worker
+pnpm run types    # regenerate Worker types after wrangler config changes
 ```
 
-Each inspection fetches a fresh notebook snapshot through Cloudflare Access.
-When its session has expired, `cloudflared` opens the normal browser login flow.
-For offline recovery or tests, `--notebook-snapshot PATH` replaces that fetch.
-
-Review the generated `report.md` before promotion. Structural validation errors,
-possible id reuse, and removed ids referenced by notes or RSVPs block promotion.
-Unreferenced removals remain visible for review but do not block. A deliberate
-removal or reuse can be acknowledged per id with `--allow-id-change ID`; this
-does not migrate notebook references.
-
-Promote an unchanged, reviewed candidate:
-
-```bash
-python3 -m scripts.aaic_2026.refresh apply \
-  "data/aaic_2026/refreshes/{timestamp}"
-```
-
-`apply` rechecks candidate and baseline hashes, fetches the notebook immediately
-before its final blocker check, promotes files atomically, and regenerates the
-CSV and SQLite exports. It never publishes program data or deploys the app.
-
-Build the validated, ignored publication candidate separately:
+Build the current AAIC source into a validated publication candidate:
 
 ```bash
 cd app
 pnpm run program
 ```
 
-This runs the AAIC/EventPilot adapter and writes
-`.programs/aaic-2026.json`. The scraper dump remains the lossless AAIC source;
-the provider-independent `ConferenceProgram` is the application's input
-boundary. `app/.programs/` is the app-side data-build output directory: its
-validated files are reviewed and passed explicitly to the publisher, but are
-not bundled into the Worker.
-
-Publish only after reviewing that candidate. The publisher requires a
-bucket-scoped R2 access key in `R2_ACCESS_KEY_ID` and
-`R2_SECRET_ACCESS_KEY`, plus `R2_ACCOUNT_ID`; `R2_BUCKET` defaults to
-`conference-programs`.
+Publish a reviewed candidate independently of an app deployment:
 
 ```bash
 pnpm run program:publish -- .programs/aaic-2026.json
 ```
 
-Publication validates the program again and reads the current catalog. An
-unchanged program verifies its existing immutable object and exits without
-rewriting the catalog. A changed program uploads and reads back its
-full-SHA-256 object, then conditionally updates `catalog.json` against the R2
-ETag. A concurrent promotion fails without changing the catalog pointer.
-Program publication does not build or deploy the Worker.
-
-Controlled refreshes default to four agenda-detail workers with a 0.20-second
-request-start interval, and four people workers with a 0.05-second interval.
-Lower concurrency or increase the interval if EventPilot begins rate-limiting.
-
-## Direct scraper use
-
-`scripts.aaic_2026.scrape` is useful for smoke tests and resuming low-level work.
-It uses only the Python standard library.
-
-```bash
-AAIC_COOKIE='...' python3 -m scripts.aaic_2026.scrape \
-  --date 2026-07-12 --max-sessions 2 \
-  --outdir data/aaic_2026/scratch
-```
-
-Important options:
-
-- `--resume`: preserve completed session, presentation, and person records and
-  retry missing or failed details.
-- `--date YYYY-MM-DD`: restrict the scrape to one date; repeatable.
-- `--max-sessions N`: limit a validation run.
-- `--no-details`: fetch only parent-session lists.
-- `--people`: fetch referenced EventPilot `speakers` records into `people.json`.
-- `--detail-workers`, `--detail-interval`, `--people-workers`, and
-  `--people-interval`: bound request concurrency and pacing.
-- `--save-every` and `--log-every`: control checkpoints and progress logging.
-
-Copy the cookie from a logged-in browser request to
-`https://eppro01.ativ.me/web/api.php`. The scraper also accepts `--cookie`, but
-the environment variable avoids leaving credentials in shell history.
-
-## Derived exports
-
-Regenerate daily CSVs:
-
-```bash
-python3 -m scripts.aaic_2026.export_presentations \
-  --input data/aaic_2026/sessions.json \
-  --people data/aaic_2026/people.json \
-  --outdir data/aaic_2026
-```
-
-Regenerate SQLite:
-
-```bash
-python3 -m scripts.aaic_2026.export_sqlite \
-  --sessions data/aaic_2026/sessions.json \
-  --people data/aaic_2026/people.json \
-  --output data/aaic_2026/aaic_2026.sqlite
-```
-
-## Verification
-
-Run the complete Python suite after scraper, refresh, or data changes:
-
-```bash
-python3 -m unittest
-```
-
-For the reverse-engineered API, normalized data model, and upstream quirks, see
-`SCRAPER.md`. For app architecture and open work, see `ROADMAP.md`. Contributor
-and agent conventions live in `AGENTS.md` (`CLAUDE.md` is its source file).
+Publishing requires the bucket-scoped R2 credentials documented in the AAIC
+ingestion README. Program publication and Worker deployment are deliberately
+separate operations.
