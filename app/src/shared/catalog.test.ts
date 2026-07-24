@@ -54,26 +54,13 @@ describe("conference catalog", () => {
 
 describe("conference catalog routing", () => {
   it("resolves only finite top-level conference slugs", () => {
-    expect(
-      conferenceForLocation(catalog, "/aaic-2026/", "conferences.kozak.ch"),
-    ).toBe(aaic);
-    expect(
-      conferenceForLocation(catalog, "/made-up/", "conferences.kozak.ch"),
-    ).toBeUndefined();
-    expect(
-      conferenceForLocation(
-        catalog,
-        "/aaic-2026/extra",
-        "conferences.kozak.ch",
-      ),
-    ).toBeUndefined();
+    expect(conferenceForLocation(catalog, "/aaic-2026/")).toBe(aaic);
+    expect(conferenceForLocation(catalog, "/made-up/")).toBeUndefined();
+    expect(conferenceForLocation(catalog, "/aaic-2026/extra")).toBeUndefined();
   });
 
-  it("keeps the historical AAIC hostname rooted at AAIC", () => {
-    expect(conferenceForLocation(catalog, "/", "aaic2026.kozak.ch")).toBe(aaic);
-    expect(
-      conferenceForLocation(catalog, "/", "conferences.kozak.ch"),
-    ).toBeNull();
+  it("uses the root path for the conference catalog", () => {
+    expect(conferenceForLocation(catalog, "/")).toBeNull();
   });
 });
 

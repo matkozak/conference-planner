@@ -7,10 +7,7 @@
   // no preview URLs (they would bypass Cloudflare Access).
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [
-    { "pattern": "conferences.kozak.ch", "custom_domain": true },
-    { "pattern": "aaic2026.kozak.ch", "custom_domain": true },
-  ],
+  "routes": [{ "pattern": "conferences.kozak.ch", "custom_domain": true }],
   // Public Access application identifiers used to validate incoming JWTs.
   "vars": {
     "TEAM_DOMAIN": "https://gippity.cloudflareaccess.com",

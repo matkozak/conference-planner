@@ -86,11 +86,7 @@ export async function init(): Promise<boolean> {
       throw new Error(`catalog HTTP ${catalogResponse.status}`);
     }
     const catalog = parseConferenceCatalog(await catalogResponse.json());
-    const conference = conferenceForLocation(
-      catalog,
-      location.pathname,
-      location.hostname,
-    );
+    const conference = conferenceForLocation(catalog, location.pathname);
     if (conference === null) {
       ui.catalog = catalog.conferences;
       document.title = "Conferences";

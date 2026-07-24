@@ -82,13 +82,9 @@ export function conferenceById(
 export function conferenceForLocation(
   catalog: ConferenceCatalog,
   pathname: string,
-  hostname: string,
 ): ConferenceCatalogEntry | null | undefined {
   const parts = pathname.split("/").filter(Boolean);
-  if (parts.length === 0) {
-    const legacyId = LEGACY_HOST_CONFERENCES[hostname];
-    return legacyId ? conferenceById(catalog, legacyId) : null;
-  }
+  if (parts.length === 0) return null;
   if (parts.length !== 1) return undefined;
   return conferenceById(catalog, parts[0] ?? "");
 }
@@ -103,11 +99,6 @@ export function conferenceStatus(
   if (today > conference.ends_on) return "past";
   return "current";
 }
-
-/** The historical hostname keeps serving AAIC at its root path. */
-const LEGACY_HOST_CONFERENCES: Readonly<Record<string, string>> = {
-  "aaic2026.kozak.ch": "aaic-2026",
-};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

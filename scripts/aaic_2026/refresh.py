@@ -26,7 +26,7 @@ from scripts.aaic_2026.scrape import write_outputs
 DEFAULT_DATA = DATA_DIR
 DEFAULT_REFRESH_ROOT = REFRESH_DIR
 NOTEBOOK_URL = (
-    "https://aaic2026.kozak.ch"
+    "https://conferences.kozak.ch"
     "/api/conferences/aaic-2026/notebook/export.json"
 )
 REPORT_JSON = "report.json"

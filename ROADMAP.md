@@ -24,9 +24,6 @@ Publish a useful preliminary CTAD program well before the conference:
 
 - [ ] Publish the rewritten data-free history and rewritten tags to the chosen
       GitHub repository, then verify the remote before removing local backups.
-- [ ] After the compatibility window, retire `aaic2026.kozak.ch`: remove the
-      Worker route, Access application, legacy-host code, and tests; deploy and
-      verify Cloudflare removed its managed DNS record.
 
 ## Small backlog
 

@@ -107,7 +107,7 @@ class RefreshReportTest(unittest.TestCase):
             )
             command = run.call_args.args[0]
             self.assertEqual(["mise", "exec", "--", "cloudflared"], command[:4])
-            self.assertIn("https://aaic2026.kozak.ch", command[6])
+            self.assertIn("https://conferences.kozak.ch", command[6])
 
     def test_removed_referenced_id_blocks_and_suggests_remap(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
