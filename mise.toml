@@ -2,3 +2,6 @@
 cloudflared = "latest"
 node = "lts"
 pnpm = "11"
+
+[env]
+PNPM_CONFIG_DIR = "{{config_root}}/app"

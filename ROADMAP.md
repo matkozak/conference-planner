@@ -34,5 +34,3 @@ Do these only when there is a concrete need:
 
 - Search filters for sessions, talks, and posters.
 - Include RSVPs in CSV exports.
-- Re-enable pnpm's `verifyDepsBeforeRun` after its upstream crash is fixed; see
-  `app/pnpm-workspace.yaml`.

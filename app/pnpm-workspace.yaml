@@ -1,17 +1,6 @@
-# pnpm 11.9.0's pre-run deps-status check crashes intermittently (internal
-# minimumReleaseAge policy bug); it's a nicety, not correctness — off.
-verifyDepsBeforeRun: false
-
 # pnpm's script-blocking security model: only these deps may run build
 # scripts (they install platform binaries; everything else is blocked).
 allowBuilds:
-  esbuild: true
-  sharp: true
-  workerd: true
-minimumReleaseAgeExclude:
-  - "@cloudflare/vite-plugin@1.43.2"
-  - "@cloudflare/workers-types@5.20260708.1"
-  - "@sveltejs/vite-plugin-svelte@7.2.0"
-  - "@types/node@26.1.1"
-  - miniflare@4.20260706.0
-  - wrangler@4.108.0
+  esbuild: false
+  sharp: false
+  workerd: false
