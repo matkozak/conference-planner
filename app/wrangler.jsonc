@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "aaic2026",
+  "name": "conference-planner",
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-07-23",
   // The Access-protected custom domain is the only way in: no workers.dev,
@@ -33,5 +33,7 @@
       "remote": true,
     },
   ],
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["NotebookDO"] }],
+  "exports": {
+    "NotebookDO": { "type": "durable-object", "storage": "sqlite" },
+  },
 }

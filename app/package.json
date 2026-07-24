@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "types": "wrangler types",
-    "deploy": "pnpm run build && wrangler deploy -c dist/aaic2026/wrangler.json"
+    "deploy": "pnpm run build && wrangler deploy -c dist/conference_planner/wrangler.json"
   },
   "dependencies": {
     "@leeoniya/ufuzzy": "^1.0.19",
