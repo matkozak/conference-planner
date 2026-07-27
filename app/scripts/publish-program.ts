@@ -12,7 +12,7 @@ function requiredEnv(name: string): string {
 async function main(): Promise<void> {
   const file = process.argv[2];
   if (!file) {
-    throw new Error("usage: pnpm run program:publish -- <program.json>");
+    throw new Error("usage: pnpm run program:publish <program.json>");
   }
 
   const config: R2PublicationConfig = {

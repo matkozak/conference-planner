@@ -79,7 +79,7 @@ pnpm run program
 Publish a reviewed candidate independently of an app deployment:
 
 ```bash
-pnpm run program:publish -- .programs/aaic-2026.json
+pnpm run program:publish .programs/aaic-2026.json
 ```
 
 Publishing requires the bucket-scoped R2 credentials documented in the AAIC

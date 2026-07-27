@@ -157,7 +157,7 @@ bucket-scoped `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_ACCOUNT_ID`;
 `R2_BUCKET` defaults to `conference-programs`:
 
 ```bash
-pnpm run program:publish -- .programs/aaic-2026.json
+pnpm run program:publish .programs/aaic-2026.json
 ```
 
 The publisher validates the program, uploads and reads back its immutable

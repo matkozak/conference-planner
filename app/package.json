@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "program": "node scripts/build-program.ts",
+    "program:check": "node scripts/check-program.ts",
     "program:publish": "node scripts/publish-program.ts",
     "dev": "vite dev",
     "build": "vite build",

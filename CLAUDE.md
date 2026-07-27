@@ -50,6 +50,8 @@ Run app commands from `app/` with pnpm:
 ```bash
 pnpm install      # install pinned dependencies
 pnpm run program  # build the current AAIC publication candidate
+pnpm run program:check <program.json>    # validate a candidate
+pnpm run program:publish <program.json>  # publish a candidate to R2
 pnpm run check    # Svelte and TypeScript checks
 pnpm run test     # Vitest
 pnpm run dev      # Vite with the Worker running in workerd
