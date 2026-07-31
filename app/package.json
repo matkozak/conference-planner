@@ -6,6 +6,8 @@
     "program": "node scripts/build-program.ts",
     "program:check": "node scripts/check-program.ts",
     "program:publish": "node scripts/publish-program.ts",
+    "ctad:build": "node scripts/ctad-workflow.ts build",
+    "ctad:publish": "node scripts/ctad-workflow.ts publish",
     "dev": "vite dev",
     "build": "vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.worker.json --noEmit",

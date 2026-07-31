@@ -7,7 +7,8 @@ This repository contains two deliberately separate systems:
    programs, RSVP, and share notes.
 
 The app is multi-conference. AAIC 2026 uses the mature Python EventPilot
-pipeline; CTAD 2026 will use a separate PDF extraction pipeline.
+scrape plus an adapter; CTAD 2026 uses a separate Python PDF extraction
+pipeline that produces a schema-conformant program directly.
 
 ## Boundaries
 
@@ -34,8 +35,8 @@ pipeline; CTAD 2026 will use a separate PDF extraction pipeline.
 - `schema/` — portable program schema and invariants
 - `ROADMAP.md` — unfinished work only
 
-AAIC protocol and operating instructions live in
-`scripts/aaic_2026/README.md`.
+Per-conference protocol and operating instructions live in
+`scripts/aaic_2026/README.md` and `scripts/ctad_2026/README.md`.
 
 ## Commands
 
@@ -45,13 +46,25 @@ Python is standard-library only:
 python3 -m unittest
 ```
 
-Run app commands from `app/` with pnpm:
+CTAD ingestion additionally needs `pdftohtml` and `pdftocairo` from
+poppler-utils:
+
+```bash
+python3 -m scripts.ctad_2026.build            # build the CTAD candidate
+python3 -m scripts.ctad_2026.build --report   # review without writing
+```
+
+Run app commands from `app/` with pnpm. With the repository mise environment
+active, they also work from the repository root because `PNPM_CONFIG_DIR`
+points at `app/`:
 
 ```bash
 pnpm install      # install pinned dependencies
 pnpm run program  # build the current AAIC publication candidate
 pnpm run program:check <program.json>    # validate a candidate
 pnpm run program:publish <program.json>  # publish a candidate to R2
+pnpm run ctad:build    # build and fully verify the CTAD candidate
+pnpm run ctad:publish  # reconcile, publish, and verify CTAD production
 pnpm run check    # Svelte and TypeScript checks
 pnpm run test     # Vitest
 pnpm run dev      # Vite with the Worker running in workerd

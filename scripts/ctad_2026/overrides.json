@@ -1,0 +1,76 @@
+{
+  "_comment": [
+    "Curated corrections applied on top of the deterministic PDF parse.",
+    "Keys are the collapsed source strings, so an unchanged source reproduces",
+    "byte-identical output and a changed source fails loudly as unmatched.",
+    "Run `python3 -m scripts.ctad_2026.build --report` to list what is missing."
+  ],
+  "glyph_repairs": [
+    {
+      "pattern": "APOE\\s*\\?4",
+      "replacement": "APOE ε4",
+      "note": "epsilon: APOE ?4"
+    },
+    {
+      "pattern": "\\?(?=\\s*-?\\s*[Ss]ynuclein)",
+      "replacement": "α",
+      "note": "alpha: ?-Synuclein, pS129-?- Synuclein"
+    },
+    {
+      "pattern": "(?<=\\bA)\\?",
+      "replacement": "β",
+      "note": "beta: A?42, non-A?, A?/TfR"
+    },
+    {
+      "pattern": "(?<=[A-Za-z])\\?(?=[A-Za-z0-9])",
+      "replacement": "-",
+      "note": "non-breaking hyphen: Double?Blind, TML?6"
+    }
+  ],
+  "chairs": {
+    "Chair: Tammie L.S. Benzinger, Washington University in St. Louis -St. Louis, Missouri, (United States)": [
+      {
+        "name": "Tammie L.S. Benzinger",
+        "org": "Washington University in St. Louis, St. Louis, Missouri (United States)"
+      }
+    ],
+    "Chair: Fiona Elwood, Johnson & Johnson, Cambridge, MA, USA": [
+      {
+        "name": "Fiona Elwood",
+        "org": "Johnson & Johnson, Cambridge, MA (United States)"
+      }
+    ],
+    "Co-chairs: Gustavo A. Jimenez-Maggiora, Alzheimer’s Therapeutic Research Institute (ATRI), Epstein Family Center for Alzheimer’s Disease Research, Keck School of Medicine of USC, San Diego, CA – (United States) Duygu Tosun,— University of California, San Francisco (UCSF) - San Francisco, CA (United States)": [
+      {
+        "name": "Gustavo A. Jimenez-Maggiora",
+        "org": "Alzheimer’s Therapeutic Research Institute (ATRI), Epstein Family Center for Alzheimer’s Disease Research, Keck School of Medicine of USC, San Diego, CA (United States)"
+      },
+      {
+        "name": "Duygu Tosun",
+        "org": "University of California, San Francisco (UCSF), San Francisco, CA (United States)"
+      }
+    ],
+    "Chair: Malú Gámez Tansey, Neuroscience Research Institute, Indiana University School of Medicine – Indianapolis, IN (United States)": [
+      {
+        "name": "Malú Gámez Tansey",
+        "org": "Neuroscience Research Institute, Indiana University School of Medicine, Indianapolis, IN (United States)"
+      }
+    ],
+    "Chair: Marwan Sabbagh, Barrow Neurological Institute - Phoenix, AZ (United States)": [
+      {
+        "name": "Marwan Sabbagh",
+        "org": "Barrow Neurological Institute, Phoenix, AZ (United States)"
+      }
+    ]
+  },
+  "names": {
+    "_comment": "Source errors that no casing rule can fix: surname printed first.",
+    "Petersen Melissa": "Melissa Petersen",
+    "Todorova Antoniya": "Antoniya Todorova"
+  },
+  "orgs": {
+    "MD, Vice President and Global Head of Neurodegeneration, F. Hoffmann-La Roche, Ltd., Basel (Switzerland)": "F. Hoffmann-La Roche, Ltd., Basel (Switzerland)",
+    "PhD, Research Neuroscientist, Helen Wills Neuroscience Institute University of California, Berkeley, CA (United States)": "Helen Wills Neuroscience Institute, University of California, Berkeley, CA (United States)",
+    "Professor of Neurology, Emory University’s School of Medicine, Emory’s Alzheimer’s Disease Research Center, Emory University - Atlanta, GA (United States)": "Emory University School of Medicine, Atlanta, GA (United States)"
+  }
+}
