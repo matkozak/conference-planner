@@ -10,7 +10,7 @@ import unittest
 from typing import Any
 
 from scripts.ctad_2026 import schedule
-from scripts.ctad_2026.build import build, report
+from scripts.ctad_2026.build import blocking_notes, build, report
 from scripts.ctad_2026.paths import SOURCE_DIR
 
 
@@ -31,12 +31,19 @@ class SourceIntegrityTest(unittest.TestCase):
     def sessions(self, kind: str) -> list[dict[str, Any]]:
         return [s for s in self.program["sessions"] if s["kind"] == kind]
 
-    def test_the_review_report_has_only_expected_empty_sessions(self) -> None:
+    def test_the_review_report_has_no_actionable_findings(self) -> None:
         notes = report(self.program, self.overrides)
-        unexpected = [note for note in notes if not note.startswith("empty session ")]
+        self.assertEqual(blocking_notes(notes), [])
 
-        self.assertTrue(any(note.startswith("empty session ") for note in notes))
-        self.assertEqual(unexpected, [])
+    def test_keynotes_have_one_presenter_and_keep_the_session_bounds(self) -> None:
+        for session in self.sessions("session"):
+            if session.get("category") != "Keynote":
+                continue
+            self.assertEqual(len(session["presentations"]), 1)
+            talk = session["presentations"][0]
+            self.assertEqual(len(talk["speaker_ids"]), 1)
+            self.assertEqual(talk["starts_at"], session["starts_at"])
+            self.assertEqual(talk["ends_at"], session["ends_at"])
 
     def test_every_day_carries_sessions_and_matches_the_conference_range(self) -> None:
         days = self.program["days"]

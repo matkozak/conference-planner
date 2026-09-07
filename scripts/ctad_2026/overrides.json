@@ -5,6 +5,7 @@
     "byte-identical output and a changed source fails loudly as unmatched.",
     "Run `python3 -m scripts.ctad_2026.build --report` to list what is missing."
   ],
+  "sessions": [],
   "glyph_repairs": [
     {
       "pattern": "APOE\\s*\\?4",

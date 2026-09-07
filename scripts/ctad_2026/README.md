@@ -28,12 +28,22 @@ pnpm run ctad:publish
 4. validates the candidate against the shared schema; and
 5. runs the app type checks and tests.
 
-Known empty source sessions are summarized without failing the build. Review
-their full list with:
+Breaks, walking tours, the welcome ceremony, and social events do not need
+presentations and are omitted from the review report. Empty late-breaking
+sessions are listed as awaiting presentation details; check these against the
+PDF after a refresh. Other empty scientific sessions fail the strict build.
+Review the full list with:
 
 ```bash
 python3 -m scripts.ctad_2026.build --report
 ```
+
+Unmatched underline warnings include the PDF page number, coordinates in
+poppler's XML space (1188 units high), and nearby text. These are candidate
+marks, not a count of missing presenters. Colored dividers spanning at least
+three quarters of the page width are excluded; short colored underlines remain.
+Check the indicated page before deciding whether a presenter correction is
+needed; unresolved talk presenters also appear as actionable report findings.
 
 `ctad:publish` rebuilds and verifies everything, then fetches the current
 production catalog, immutable CTAD program, and a fresh CTAD notebook snapshot
@@ -141,7 +151,11 @@ author order carries meaning, and the bold marks the speaker wherever they sit.
 Only `b`, `sup` and `br` are emitted here, bare and with every source string
 escaped, because publication rejects any other markup in `description_html`.
 
-Chairs, keynote speakers and their introducers are session speakers.
+Chairs, keynote speakers and their introducers remain session speakers. Each
+standalone keynote also gets one talk with the session's title and time bounds,
+the keynote author's attribution and affiliation, and no introducer among its
+presenters. The welcome/award ceremony remains a separate session. Session and
+talk notes/RSVPs are currently separate, as for any other session with talks.
 
 Two source documents, one notion of a speaker: the program underlines its
 presenters, the posters document names one on a `Presenter:` line, and both end
@@ -182,12 +196,43 @@ byte-identically, and a changed source shows up as an unused override in
   produces the same `?`; these ordered substitutions restore them. `--report`
   lists any `?` that is not ordinary sentence punctuation, which is how new
   cases are found after a source refresh.
+- `sessions` — guarded presenter corrections, applied after standalone keynotes
+  become presentations. Match the exact collapsed source session title, date,
+  and start time, then the source presentation label (`OC12`, `Presentation2`,
+  `BIOTECHSHOWCASE3`, or generated `KEYNOTE1`). Names are exact parsed author
+  strings, before name normalization. For example, using synthetic data:
+
+```json
+{
+  "match": {
+    "title": "Example session",
+    "date": "2026-11-16",
+    "starts": "15:25:00"
+  },
+  "presentation": "OC12",
+  "expect": {
+    "authors": ["Ada Lovelace", "Grace Hopper"],
+    "presenters": []
+  },
+  "presenters": ["Grace Hopper"],
+  "reason": "PDF page 12: Grace Hopper is underlined; the mark was not matched."
+}
+```
+
+Place entries in the top-level `sessions` array in `overrides.json`. `expect`
+must match the current ordered author list and resolved presenter list (including
+the sole-author fallback). Each selected presenter must match exactly one author.
+Missing or ambiguous targets, duplicate corrections, and changed expectations
+fail the build, including report mode. Keep a reason and PDF page for review.
+Only presenter corrections are supported for now; add structural replacement
+fields when a source exception actually needs them. Rebuild after corrections;
+never edit the generated candidate as a lasting fix.
 
 ## Identity
 
 Session ids are `S<n>` in document order; poster sessions are `PS<n>`. Talks keep
 their source labels (`OC12`), symposium presentations become `S<n>P<m>`, biotech
-showcases `BS<n>`, and posters keep `P<n>`.
+showcases `BS<n>`, standalone keynotes use `KEYNOTE<n>`, and posters keep `P<n>`.
 
 People are keyed on normalised name plus organisation, and their ids are a hash
 of that key, so they stay stable no matter what order the sources are read in.

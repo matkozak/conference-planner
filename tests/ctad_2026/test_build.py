@@ -11,6 +11,7 @@ from scripts.ctad_2026.build import (
     build_poster_sessions,
     build_program_sessions,
     item_id,
+    prepare_sessions,
     report,
     timestamp,
 )
@@ -485,13 +486,103 @@ class ReportTest(unittest.TestCase):
             any("presenter does not match exactly one author" in note for note in notes)
         )
 
-    def test_empty_sessions_are_informational_but_other_findings_block(self) -> None:
+    def test_only_awaiting_details_are_informational(self) -> None:
         notes = [
-            "empty session S1: Placeholder",
+            "awaiting presentation details S1: Late Breaking Communications",
+            "unexpected empty session S2: Symposium",
             "uncurated chair line: Chair: Needs review",
         ]
 
-        self.assertEqual([notes[1]], blocking_notes(notes))
+        self.assertEqual(notes[1:], blocking_notes(notes))
+
+    def test_breaks_are_quiet_and_scientific_gaps_are_classified(self) -> None:
+        for title, category, prefix in [
+            ("Coffee Break — Poster Session", "", None),
+            ("Lunch and Poster Sessions", "", None),
+            ("Poster Walking Tour 1", "", None),
+            ("Welcome Ceremony & Award", "", None),
+            ("Reception", "Social", None),
+            ("Late Breaking Communications", "Late Breaking", "awaiting presentation details"),
+            ("A symposium", "Symposium", "unexpected empty session"),
+        ]:
+            with self.subTest(title=title):
+                program = self.program(title)
+                session = program["sessions"][0]
+                session.update(title=title, category=category, presentations=[])
+                notes = report(program, overrides())
+                self.assertEqual(len(notes), int(prefix is not None))
+                if prefix:
+                    self.assertTrue(notes[0].startswith(prefix))
+
+
+class KeynoteAndSessionOverrideTest(unittest.TestCase):
+    def source(self) -> Session:
+        return Session(
+            date="2026-11-16", starts="15:25:00", ends="15:50:00",
+            category="Keynote", label="KEYNOTE 1", title="A keynote",
+            authors=[Author("Ada Lovelace", affiliation="University", presenting=True),
+                     Author("Introduction: Grace Hopper", presenting=True)],
+        )
+
+    def correction(self) -> dict:
+        return {
+            "match": {"title": "A keynote", "date": "2026-11-16", "starts": "15:25:00"},
+            "presentation": "KEYNOTE1",
+            "expect": {"authors": ["Ada Lovelace"], "presenters": ["Ada Lovelace"]},
+            "presenters": ["Ada Lovelace"],
+            "reason": "Synthetic example, PDF page 1",
+        }
+
+    def test_keynote_gets_attribution_without_introducer_and_leaves_source_untouched(self) -> None:
+        source = self.source()
+        people = People()
+        session = build_program_sessions([source], people, overrides())[0]
+        talk = session["presentations"][0]
+        self.assertEqual(talk["id"], "KEYNOTE1")
+        self.assertEqual(talk["starts_at"], session["starts_at"])
+        self.assertEqual(talk["ends_at"], session["ends_at"])
+        self.assertEqual([people.entries[i]["name"] for i in talk["speaker_ids"]], ["Ada Lovelace"])
+        self.assertEqual(len(session["speaker_ids"]), 2)
+        self.assertIn("University", talk["description_html"])
+        self.assertNotIn("Grace Hopper", talk["description_html"])
+        self.assertEqual(source.items, [])
+
+    def test_existing_keynote_talk_is_not_duplicated(self) -> None:
+        source = self.source()
+        source.items = [Item("OC1", "Existing talk", authors=[Author("Ada")])]
+        self.assertEqual(len(prepare_sessions([source], overrides())[0].items), 1)
+
+    def test_override_corrects_presenter_without_reordering_authors(self) -> None:
+        source = self.source()
+        source.authors.insert(1, Author("Another Author"))
+        entry = self.correction()
+        entry["expect"]["authors"].append("Another Author")
+        entry["presenters"] = ["Another Author"]
+        result = prepare_sessions([source], overrides(sessions=[entry]))[0].items[0]
+        self.assertEqual([(a.name, a.presenting) for a in result.authors],
+                         [("Ada Lovelace", False), ("Another Author", True)])
+        self.assertTrue(source.authors[0].presenting)
+
+    def test_stale_ambiguous_or_invalid_overrides_fail(self) -> None:
+        for case in ["unused", "ambiguous", "stale", "unknown author", "duplicate", "unknown field"]:
+            with self.subTest(case=case):
+                sources = [self.source()]
+                entry = self.correction()
+                entries = [entry]
+                if case == "unused":
+                    entry["match"]["title"] = "Old title"
+                elif case == "ambiguous":
+                    sources.append(self.source())
+                elif case == "stale":
+                    entry["expect"]["presenters"] = []
+                elif case == "unknown author":
+                    entry["presenters"] = ["Someone Else"]
+                elif case == "duplicate":
+                    entries.append(entry)
+                else:
+                    entry["typo"] = True
+                with self.assertRaises(ValueError):
+                    prepare_sessions(sources, overrides(sessions=entries))
 
 
 class OverridesFileTest(unittest.TestCase):

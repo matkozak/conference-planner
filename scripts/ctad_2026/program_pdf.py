@@ -85,6 +85,7 @@ class Item:
     starts: str | None = None
     authors: list[Author] = field(default_factory=list)
     affiliations: dict[int, str] = field(default_factory=dict)
+    ends: str | None = None
 
 
 @dataclass

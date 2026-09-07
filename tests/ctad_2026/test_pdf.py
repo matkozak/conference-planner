@@ -89,12 +89,22 @@ def svg(paths: str, height: float = 792.0) -> str:
 
 def stroke(width: str, d: str, dx: float, dy: float) -> str:
     return (
-        f'<path fill="none" stroke-width="{width}" d="{d}" '
+        f'<path fill="none" stroke="rgb(0%, 0%, 0%)" stroke-width="{width}" d="{d}" '
         f'transform="matrix(1, 0, 0, -1, {dx}, {dy})"/>'
     )
 
 
 class UnderlineExtractionTest(unittest.TestCase):
+    def test_colored_biography_dividers_are_not_presenter_underlines(self) -> None:
+        path = stroke("1", "M 0.0 0.0 L 490.0 0.0", 62.0, 306.0)
+        path = path.replace("rgb(0%, 0%, 0%)", "rgb(95%, 46%, 18%)")
+        self.assertEqual(underlines_from_svg(svg(path), 6, PAGE_HEIGHT), [])
+
+    def test_short_colored_presenter_underlines_are_kept(self) -> None:
+        path = stroke("1", "M 0.0 0.0 L 50.0 0.0", 129.0, 63.0)
+        path = path.replace("rgb(0%, 0%, 0%)", "rgb(18%, 48%, 75%)")
+        self.assertEqual(len(underlines_from_svg(svg(path), 8, PAGE_HEIGHT)), 1)
+
     def test_a_thin_horizontal_rule_becomes_an_underline(self) -> None:
         found = underlines_from_svg(
             svg(stroke("1", "M 0.0 0.0 L 61.5 0.0", 247.5, 132.5)), 5, PAGE_HEIGHT
@@ -162,8 +172,10 @@ class UnderlineMatchingTest(unittest.TestCase):
         self.assertEqual(matched, 0)
         self.assertFalse(any(run.underlined for run in lines[0].runs))
         self.assertIn(
-            "1 of 1 presenter underlines could not be matched", logged.output[0]
+            "1 of 1 presenter underlines could not be matched", logged.output[-1]
         )
+        self.assertIn("PDF page 1 at x=378–463, y=260", logged.output[0])
+        self.assertIn("James D Doecke", logged.output[0])
 
 
 if __name__ == "__main__":

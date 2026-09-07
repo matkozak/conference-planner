@@ -158,8 +158,10 @@ SVG_FLIP = re.compile(
     r'transform="matrix\(1,\s*0,\s*0,\s*-1,\s*([-\d.]+),\s*([-\d.]+)\)"'
 )
 SVG_HEIGHT = re.compile(r'height="([\d.]+)pt"')
+SVG_WIDTH = re.compile(r'width="([\d.]+)pt"')
 #: A rule this thin is an underline; the thicker rules are session accent bars.
 UNDERLINE_STROKE = 'stroke-width="1"'
+BLACK_STROKE = 'stroke="rgb(0%, 0%, 0%)"'
 #: An underline sits this far below the top of the run it marks.
 UNDERLINE_DROP = (8, 26)
 
@@ -193,6 +195,12 @@ def underlines_from_svg(svg: str, page: int, height: int) -> list[Underline]:
         x0, y0, x1, y1 = (float(value) for value in segment.groups())
         dx, dy = (float(value) for value in flip.groups())
         if abs(y0 - y1) > 0.5 or abs(x1 - x0) < 4:
+            continue
+        # Biography dividers span the page; actual presenter marks can also be
+        # colored, but are confined to the author text column.
+        width = SVG_WIDTH.search(svg)
+        if (width is not None and BLACK_STROKE not in attributes
+                and abs(x1 - x0) >= float(width.group(1)) * 0.75):
             continue
         found.append(
             Underline(
@@ -247,6 +255,17 @@ def apply_underlines(lines: list[Line], underlines: list[Underline]) -> int:
         if best is not None:
             best[1].underlined = True
             matched += 1
+        else:
+            nearby = sorted(
+                (line for line in lines if line.page == mark.page),
+                key=lambda line: abs(line.top - mark.top),
+            )[:2]
+            LOGGER.warning(
+                "unmatched underline on PDF page %d at x=%d–%d, y=%d "
+                "(XML coordinates); nearby text: %s",
+                mark.page, mark.left, mark.right, mark.top,
+                " | ".join(line.text for line in nearby) or "<no text on page>",
+            )
     if unmatched := len(underlines) - matched:
         LOGGER.warning(
             "%d of %d presenter underlines could not be matched",

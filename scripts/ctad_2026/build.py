@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import sys
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from html import escape
@@ -39,7 +40,11 @@ PRESENTATION_LABEL = re.compile(r"^Presentation(\d+)$")
 #: A question mark that is not sentence punctuation is a glyph the PDF lost.
 UNMAPPED_GLYPH = re.compile(r"\?(?!$|\s+[A-Z(])")
 DIGIT_IN_NAME = re.compile(r"\d")
-INFORMATIONAL_REVIEW_PREFIXES = ("empty session ",)
+INFORMATIONAL_REVIEW_PREFIXES = ("awaiting presentation details ",)
+STANDALONE_EVENT = re.compile(
+    r"^(?:coffee break\b|lunch\b|poster walking tour\b|welcome ceremony\b)",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -50,6 +55,7 @@ class Overrides:
     chairs: dict[str, list[dict[str, str]]] = field(default_factory=dict)
     names: dict[str, str] = field(default_factory=dict)
     orgs: dict[str, str] = field(default_factory=dict)
+    sessions: list[dict[str, Any]] = field(default_factory=list)
     used_chairs: set[str] = field(default_factory=set)
     used_names: set[str] = field(default_factory=set)
     used_orgs: set[str] = field(default_factory=set)
@@ -71,6 +77,7 @@ class Overrides:
                 if not key.startswith("_")
             },
             orgs=raw.get("orgs", {}),
+            sessions=raw.get("sessions", []),
         )
 
     def repair(self, text: str) -> str:
@@ -244,6 +251,8 @@ def build_talk(
     starts = timestamp(session.date, item.starts)
     if starts:
         talk["starts_at"] = starts
+    if ends := timestamp(session.date, item.ends):
+        talk["ends_at"] = ends
     speakers = presenting_authors(item.authors)
     ids = speaker_ids(speakers, item.affiliations, people, overrides)
     if ids:
@@ -254,10 +263,69 @@ def build_talk(
     return talk
 
 
+def prepare_sessions(sources: list[Session], overrides: Overrides) -> list[Session]:
+    """Expand standalone keynotes, then apply guarded presenter corrections."""
+    sessions = deepcopy(sources)
+    for session in sessions:
+        if session.category == "Keynote" and not session.items:
+            if not session.label or not re.fullmatch(r"KEYNOTE\s+\d+", session.label):
+                raise ValueError(f"keynote needs a numbered source label: {session.title}")
+            session.items = [Item(
+                label=re.sub(r"\s+", "", session.label),
+                title=session_title(session), starts=session.starts, ends=session.ends,
+                authors=[a for a in session.authors if not INTRODUCTION_PREFIX.match(a.name)],
+                affiliations=session.affiliations,
+            )]
+
+    corrected: set[tuple[str, str, str, str]] = set()
+    for entry in overrides.sessions:
+        if set(entry) != {"match", "presentation", "expect", "presenters", "reason"}:
+            raise ValueError("session override needs match, presentation, expect, presenters, reason")
+        match, expected = entry["match"], entry["expect"]
+        if not isinstance(match, dict) or set(match) != {"title", "date", "starts"}:
+            raise ValueError("session override match needs exact source title, date, starts")
+        if not isinstance(expected, dict) or set(expected) != {"authors", "presenters"}:
+            raise ValueError("session override expect needs authors and presenters")
+        strings = [*match.values(), entry["presentation"], entry["reason"]]
+        lists = [expected["authors"], expected["presenters"], entry["presenters"]]
+        if any(not isinstance(v, list) for v in lists):
+            raise ValueError("session override authors and presenters must be lists")
+        strings.extend(name for names in lists for name in names)
+        if any(not isinstance(v, str) or not v.strip() for v in strings):
+            raise ValueError("session override values must be nonempty strings")
+        if not entry["presenters"] or len(set(entry["presenters"])) != len(entry["presenters"]):
+            raise ValueError("session override needs distinct presenter names")
+        matches = [s for s in sessions if
+                   (collapse(s.title), s.date, s.starts) ==
+                   (match["title"], match["date"], match["starts"])]
+        if len(matches) != 1:
+            raise ValueError(f"session override matched {len(matches)} sessions: {match}")
+        items = [i for i in matches[0].items if i.label == entry["presentation"]]
+        if len(items) != 1:
+            raise ValueError(f"session override must match one presentation: {entry['presentation']}")
+        item = items[0]
+        key = (match["title"], match["date"], match["starts"], item.label)
+        if key in corrected:
+            raise ValueError(f"duplicate session override: {key}")
+        corrected.add(key)
+        if expected != {
+            "authors": [a.name for a in item.authors],
+            "presenters": [a.name for a in presenting_authors(item.authors)],
+        }:
+            raise ValueError(f"session override expectation changed: {key}")
+        for name in entry["presenters"]:
+            if sum(a.name == name for a in item.authors) != 1:
+                raise ValueError(f"override presenter must match exactly one author: {name}")
+        for author in item.authors:
+            author.presenting = author.name in entry["presenters"]
+    return sessions
+
+
 def build_program_sessions(
     source_sessions: list[Session], people: People, overrides: Overrides
 ) -> list[dict[str, Any]]:
     """Convert the linear program into schema sessions."""
+    source_sessions = prepare_sessions(source_sessions, overrides)
     titles = [session_title(session) for session in source_sessions]
     duplicated = {title for title in titles if titles.count(title) > 1}
     seen: dict[str, int] = {}
@@ -459,7 +527,11 @@ def report(program: dict[str, Any], overrides: Overrides) -> list[str]:
 
     for session in program["sessions"]:
         if not session["presentations"]:
-            notes.append(f"empty session {session['id']}: {session['title'][:90]}")
+            category = session.get("category", "")
+            if category.startswith("Late Breaking"):
+                notes.append(f"awaiting presentation details {session['id']}: {session['title']}")
+            elif category != "Social" and not STANDALONE_EVENT.match(session["title"]):
+                notes.append(f"unexpected empty session {session['id']}: {session['title']}")
         if "starts_at" not in session or "ends_at" not in session:
             missing = [
                 field for field in ("starts_at", "ends_at") if field not in session
@@ -542,7 +614,7 @@ def main(argv: list[str] | None = None) -> int:
         informational = len(notes) - len(actionable)
         if informational:
             print(
-                f"review: {informational} empty sessions need visual review; "
+                f"review: {informational} sessions await presentation details; "
                 "run with --report for the list",
                 file=sys.stderr,
             )
