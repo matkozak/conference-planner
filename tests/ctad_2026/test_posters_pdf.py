@@ -18,6 +18,13 @@ def poster_entry(top: int, label: str, title: str, presenter: str) -> list[Text]
 
 
 class PosterStructureTest(unittest.TestCase):
+    def test_remote_label_preserves_identity_and_title(self) -> None:
+        posters = parse([[Text(top=70, left=68, font="poster-theme", text="IMAGING"),
+                          *poster_entry(138, "P33 [Remote]", "Example", "Ada Lovelace")]])
+        self.assertEqual(posters[0].label, "P33")
+        self.assertEqual(posters[0].title, "Example")
+        self.assertTrue(posters[0].remote)
+
     def test_posters_inherit_the_theme_heading_above_them(self) -> None:
         posters = parse(
             [
@@ -76,6 +83,18 @@ class PosterStructureTest(unittest.TestCase):
 
 
 class PosterAuthorTest(unittest.TestCase):
+    def test_standalone_comma_separates_authors(self) -> None:
+        posters = parse([[Text(top=70, left=68, font="poster-theme", text="IMAGING"),
+                          *poster_entry(138, "P33", "Example", "Ada Lovelace"),
+                          Text(top=211, left=68, font="person", text="Ada LOVELACE"),
+                          Text(top=212, left=165, font="marker", text="1"),
+                          Text(top=211, left=170, font="person", text=", "),
+                          Text(top=211, left=180, font="person", text="Alan TURING"),
+                          Text(top=212, left=280, font="marker", text="2")]])
+        self.assertEqual([a.name for a in posters[0].authors], ["Ada LOVELACE", "Alan TURING"])
+        self.assertEqual([a.affiliation_ids for a in posters[0].authors], [[1], [2]])
+        self.assertTrue(posters[0].authors[0].presenting)
+
     def test_authors_bind_to_the_numbered_affiliation_block(self) -> None:
         posters = parse(
             [

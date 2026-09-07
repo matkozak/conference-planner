@@ -243,6 +243,20 @@ The September PDF's 10:05 em dash on page 13 is handled this way: it remains a
 presentation titled `—`, without inventing a source code or presenter. Rebuild
 after corrections; never edit the generated candidate as a lasting fix.
 
+Poster-specific corrections live in the `posters` override map, keyed by stable
+poster id and guarded by the expected presenter. Author replacements and
+numbered affiliation replacements also require exact source matches. These
+handle P422's inline affiliation numbers without generalizing malformed source
+formatting into parser rules. P388 explicitly allows the named presenter outside
+the author list; the description credits that presenter separately. P694 allows
+the visually confirmed literal question mark in its author's name.
+
+The `[Remote]` suffix on a source poster label appears only in its location.
+Its title stays unchanged and its id remains `P<n>` so existing notes and RSVPs
+retain their identity.
+Individual poster locations use their board label (`P233`, or `P13 [Remote]`);
+poster sessions retain the `Poster Hall` location.
+
 ## Identity
 
 CTAD omits the optional display-only `session_number` field for all sessions,

@@ -276,6 +276,8 @@ def parse_authors(lines: list[Line]) -> list[Author]:
                 elif part:
                     current = Author(name=part)
                     authors.append(current)
+                elif run.text.strip() == ",":
+                    current = None
             # The rule marks the author this run names, which is the one still
             # open once its comma-separated parts are consumed.
             if current is not None and run.underlined:

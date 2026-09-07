@@ -15,7 +15,7 @@ from scripts.ctad_2026.pdf import Line, read_lines
 from scripts.ctad_2026.program_pdf import Author, parse_affiliations, parse_authors
 from scripts.ctad_2026.text import collapse, fold, normalize_name
 
-POSTER_LABEL = re.compile(r"^P\d+\s*$")
+POSTER_LABEL = re.compile(r"^(P\d+)(?:\s+(\[Remote\]))?\s*$")
 PRESENTER_PREFIX = "Presenter:"
 CONTENTS_ENTRY = re.compile(r"P\.\d+\s*$")
 #: The theme headings on the contents page and above each group.
@@ -30,6 +30,7 @@ class Poster:
     theme: str
     title: str
     presenter: str = ""
+    remote: bool = False
     authors: list[Author] = field(default_factory=list)
     affiliations: dict[int, str] = field(default_factory=dict)
 
@@ -70,13 +71,15 @@ def parse_lines(lines: list[Line]) -> list[Poster]:
                 theme, poster = text, None
             continue
 
-        if poster is None and not (first.bold and POSTER_LABEL.match(first.text)):
+        label = POSTER_LABEL.fullmatch(first.text) if first.bold else None
+        if poster is None and label is None:
             continue
 
-        if first.bold and POSTER_LABEL.match(first.text):
+        if label is not None:
             flush()
             poster = Poster(
-                label=first.text.strip(),
+                label=label[1],
+                remote=label[2] is not None,
                 theme=theme,
                 title=collapse("".join(run.text for run in line.runs[1:])),
             )

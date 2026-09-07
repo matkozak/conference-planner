@@ -91,5 +91,100 @@
     "MD, Vice President and Global Head of Neurodegeneration, F. Hoffmann-La Roche, Ltd., Basel (Switzerland)": "F. Hoffmann-La Roche, Ltd., Basel (Switzerland)",
     "PhD, Research Neuroscientist, Helen Wills Neuroscience Institute University of California, Berkeley, CA (United States)": "Helen Wills Neuroscience Institute, University of California, Berkeley, CA (United States)",
     "Professor of Neurology, Emory University’s School of Medicine, Emory’s Alzheimer’s Disease Research Center, Emory University - Atlanta, GA (United States)": "Emory University School of Medicine, Atlanta, GA (United States)"
+  },
+  "posters": {
+    "P388": {
+      "presenter": "Kimberley Lentz",
+      "allow_external_presenter": "Kimberley Lentz",
+      "reason": "Page 6 explicitly names this presenter outside the author list."
+    },
+    "P422": {
+      "presenter": "Annunziata Di Domenico",
+      "authors": {
+        "Nicholas ASHTON 10": [
+          {
+            "name": "Nicholas ASHTON",
+            "affiliation_ids": [
+              10,
+              11
+            ]
+          }
+        ],
+        "11": [],
+        "Marisa DENKINGER 11": [
+          {
+            "name": "Marisa DENKINGER",
+            "affiliation_ids": [
+              11
+            ]
+          }
+        ],
+        "Christopher ROWE 12": [
+          {
+            "name": "Christopher ROWE",
+            "affiliation_ids": [
+              12,
+              13
+            ]
+          }
+        ],
+        "13": [],
+        "Ming LU 14": [
+          {
+            "name": "Ming LU",
+            "affiliation_ids": [
+              14
+            ]
+          }
+        ],
+        "Sameera WIJAYAWARDANA 15": [
+          {
+            "name": "Sameera WIJAYAWARDANA",
+            "affiliation_ids": [
+              15
+            ]
+          }
+        ],
+        "Sebastian PALMQVIST 6": [
+          {
+            "name": "Sebastian PALMQVIST",
+            "affiliation_ids": [
+              6,
+              16
+            ]
+          }
+        ],
+        "16": []
+      },
+      "affiliations": {
+        "7": {
+          "expect": "Barcelona?eta Brain Research Center BBRC, Pasqual Maragall Foundation, Barcelona, Spain",
+          "replace": {
+            "7": "Barcelonaβeta Brain Research Center BBRC, Pasqual Maragall Foundation, Barcelona, Spain"
+          }
+        },
+        "9": {
+          "expect": "Scottish Brain Sciences, Edinburgh, United Kingdom, 10 Banner Alzheimer’s Institute and University of Arizona, Phoenix, United States, 11 Banner Sun Health Research Institute, Sun City, United States, 12 Australian Dementia Network Ltd, Melbourne, Australia, 13 University of Melbourne, Melbourne, Australia, 14 Eli Lilly and Company, Philadelphia, United States, 15 Eli Lilly and Company, Indianapolis, United States, 16 Memory Clinic, Skåne University Hospital, Malmö, Sweden",
+          "replace": {
+            "9": "Scottish Brain Sciences, Edinburgh, United Kingdom",
+            "10": "Banner Alzheimer’s Institute and University of Arizona, Phoenix, United States",
+            "11": "Banner Sun Health Research Institute, Sun City, United States",
+            "12": "Australian Dementia Network Ltd, Melbourne, Australia",
+            "13": "University of Melbourne, Melbourne, Australia",
+            "14": "Eli Lilly and Company, Philadelphia, United States",
+            "15": "Eli Lilly and Company, Indianapolis, United States",
+            "16": "Memory Clinic, Skåne University Hospital, Malmö, Sweden"
+          }
+        }
+      },
+      "reason": "Page 20: affiliation numbers 10–16 are printed inline; Barcelonaβeta confirmed visually."
+    },
+    "P694": {
+      "presenter": "João Pedro Ferrari-Souza",
+      "literal_question_marks": [
+        "Methasit Jaisa?aad"
+      ],
+      "reason": "Page 42 prints the question mark literally; preserve the source spelling."
+    }
   }
 }

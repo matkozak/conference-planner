@@ -56,6 +56,7 @@ class Overrides:
     orgs: dict[str, str] = field(default_factory=dict)
     sessions: list[dict[str, Any]] = field(default_factory=list)
     insertions: list[dict[str, Any]] = field(default_factory=list)
+    posters: dict[str, dict[str, Any]] = field(default_factory=dict)
     unconsumed: list[str] = field(default_factory=list)
     allowed_missing_presenters: set[str] = field(default_factory=set)
     used_chairs: set[str] = field(default_factory=set)
@@ -81,6 +82,7 @@ class Overrides:
             orgs=raw.get("orgs", {}),
             sessions=raw.get("sessions", []),
             insertions=raw.get("insertions", []),
+            posters=raw.get("posters", {}),
         )
 
     def repair(self, text: str) -> str:
@@ -448,7 +450,8 @@ def presenter_id(
             speaker.name, author_org(speaker, poster.affiliations, overrides)
         )
     # The presenter is named but matches no author; keep them anyway.
-    overrides.unmatched_presenters.add(f"{poster.label}: {poster.presenter or '<empty>'}")
+    if overrides.posters.get(poster.label, {}).get("allow_external_presenter") != poster.presenter:
+        overrides.unmatched_presenters.add(f"{poster.label}: {poster.presenter or '<empty>'}")
     return people.add(poster.presenter)
 
 
@@ -470,7 +473,7 @@ def build_poster_sessions(
                 "kind": "poster",
                 "id": poster.label,
                 "title": overrides.repair(collapse(poster.title)),
-                "location": schedule.POSTER_HALL,
+                "location": poster.label + (" [Remote]" if poster.remote else ""),
                 "description_html": f"{escape(titleize(poster.theme))}<br>"
                 + authors_html(
                     poster.authors,
@@ -481,6 +484,11 @@ def build_poster_sessions(
             }
             if person_id := presenter_id(poster, people, overrides):
                 presentation["speaker_ids"] = [person_id]
+            if overrides.posters.get(poster.label, {}).get("allow_external_presenter"):
+                presentation["description_html"] = (
+                    f"Presenter: <b>{escape(normalize_name(poster.presenter))}</b><br>"
+                    + presentation["description_html"]
+                )
             presentations.append(presentation)
 
         session: dict[str, Any] = {
@@ -511,6 +519,27 @@ def sort_key(session: dict[str, Any]) -> tuple[str, str, str, str]:
     )
 
 
+def apply_poster_overrides(posters: list[posters_pdf.Poster], overrides: Overrides) -> None:
+    """Apply reviewed poster corrections, rejecting changed source expectations."""
+    by_id = {poster.label: poster for poster in posters}
+    for label, correction in overrides.posters.items():
+        poster = by_id.get(label)
+        if poster is None or poster.presenter != correction["presenter"]:
+            raise ValueError(f"Poster override no longer matches: {label}")
+        for before, replacements in correction.get("authors", {}).items():
+            matches = [author for author in poster.authors if author.name == before]
+            if len(matches) != 1:
+                raise ValueError(f"Poster author override no longer matches: {label}: {before}")
+            index = poster.authors.index(matches[0])
+            poster.authors[index:index + 1] = [Author(**entry) for entry in replacements]
+        for key, change in correction.get("affiliations", {}).items():
+            if poster.affiliations.get(int(key)) != change["expect"]:
+                raise ValueError(f"Poster affiliation override no longer matches: {label}: {key}")
+            poster.affiliations.pop(int(key))
+            poster.affiliations.update({int(k): v for k, v in change["replace"].items()})
+        posters_pdf.mark_presenter(poster)
+
+
 def build(source_dir: Path = SOURCE_DIR) -> tuple[dict[str, Any], Overrides]:
     """Build the whole program from the two source PDFs."""
     overrides = Overrides.load()
@@ -519,6 +548,8 @@ def build(source_dir: Path = SOURCE_DIR) -> tuple[dict[str, Any], Overrides]:
         _only(source_dir, "program_*.pdf"), schedule.YEAR
     )
     posters = posters_pdf.parse(_only(source_dir, "posters_*.pdf"))
+
+    apply_poster_overrides(posters, overrides)
 
     sessions = build_program_sessions(program_sessions, people, overrides)
     sessions.extend(build_poster_sessions(posters, people, overrides))
@@ -589,6 +620,8 @@ def report(program: dict[str, Any], overrides: Overrides) -> list[str]:
             if UNMAPPED_GLYPH.search(item["title"]):
                 notes.append(f"unmapped glyph in {item['id']}: {item['title'][:90]}")
             description = item.get("description_html", "")
+            for literal in overrides.posters.get(item["id"], {}).get("literal_question_marks", []):
+                description = description.replace(escape(literal), "")
             if UNMAPPED_GLYPH.search(description):
                 notes.append(
                     f"unmapped glyph in {item['id']} description: "
