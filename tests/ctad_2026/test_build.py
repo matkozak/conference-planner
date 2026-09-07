@@ -174,9 +174,9 @@ class ProgramSessionTest(unittest.TestCase):
             ["Oral Communications 1", "Oral Communications 2"],
         )
         self.assertEqual([session["id"] for session in built], ["S1", "S2"])
-        self.assertEqual([session["session_number"] for session in built], ["1", "2"])
+        self.assertTrue(all("session_number" not in session for session in built))
 
-    def test_a_numbered_label_supplies_the_session_number(self) -> None:
+    def test_a_numbered_source_label_does_not_emit_session_number(self) -> None:
         source = [
             self.session(
                 category="Symposium", label="SYMPOSIUM 3", title="Remote Biomarkers"
@@ -184,8 +184,25 @@ class ProgramSessionTest(unittest.TestCase):
         ]
         built = build_program_sessions(source, People(), overrides())
 
-        self.assertEqual(built[0]["session_number"], "3")
+        self.assertNotIn("session_number", built[0])
         self.assertEqual(built[0]["title"], "Remote Biomarkers")
+
+    def test_social_categories_preserve_titles_and_ids_without_display_numbers(self) -> None:
+        source = [
+            self.session(title="Coffee Break"),
+            self.session(category="Symposium", title="Biomarkers"),
+            self.session(title="Lunch and Poster Sessions"),
+            self.session(category="Symposium", title="Therapies"),
+            self.session(title="Unclassified event"),
+        ]
+        built = build_program_sessions(source, People(), overrides())
+
+        self.assertTrue(all("session_number" not in session for session in built))
+        self.assertEqual([s["id"] for s in built], ["S1", "S2", "S3", "S4", "S5"])
+        self.assertEqual([s["title"] for s in built], [s.title for s in source])
+        self.assertEqual(built[0]["category"], "Social")
+        self.assertEqual(built[2]["category"], "Social")
+        self.assertNotIn("category", built[4])
 
     def test_a_curated_chair_becomes_a_speaker_and_a_description(self) -> None:
         curated = overrides(

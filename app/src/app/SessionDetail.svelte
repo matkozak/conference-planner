@@ -54,8 +54,16 @@
     {/if}
 
     {#if session.presentations.length}
-      <h2>{session.presentations.length} {poster ? "posters" : "talks"}</h2>
+      <h2>
+        {session.presentations.length}
+        {poster ? "poster" : "talk"}{session.presentations.length == 1
+          ? ""
+          : "s"}
+      </h2>
       {#each session.presentations as item (item.id)}
+        {@const label = poster
+          ? item.location
+          : hhmm(item.starts_at, selectedTimeZone())}
         <details
           class="talk"
           id={`talk-${item.id}`}
@@ -63,11 +71,7 @@
           ontoggle={(e) => (expanded[item.id] = e.currentTarget.open)}
         >
           <summary>
-            <span class="time">
-              {(poster
-                ? item.location
-                : hhmm(item.starts_at, selectedTimeZone())) || "·"}
-            </span>
+            {#if label}<span class="time">{label}</span>{/if}
             <span>{item.title}</span>
           </summary>
           {#if expanded[item.id]}

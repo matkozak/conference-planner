@@ -34,7 +34,6 @@ from scripts.ctad_2026.text import (
 
 SCHEMA_VERSION = 1
 INTRODUCTION_PREFIX = re.compile(r"^Introduction\s*:\s*", re.IGNORECASE)
-TRAILING_NUMBER = re.compile(r"(\d+)\s*$")
 BIOTECH_LABEL = re.compile(r"^BIOTECHSHOWCASE(\d+)$")
 PRESENTATION_LABEL = re.compile(r"^Presentation(\d+)$")
 #: A question mark that is not sentence punctuation is a glyph the PDF lost.
@@ -335,11 +334,9 @@ def build_program_sessions(
         session_id = f"S{index}"
         title = titles[index - 1]
         seen[title] = seen.get(title, 0) + 1
-        number = (
-            match.group(1)
-            if source.label and (match := TRAILING_NUMBER.search(source.label))
-            else str(seen[title])
-        )
+        category = source.category
+        if not category and STANDALONE_EVENT.match(title):
+            category = "Social"
         if title in duplicated:
             title = f"{title} {seen[title]}"
 
@@ -379,10 +376,8 @@ def build_program_sessions(
             session["starts_at"] = starts
         if ends := timestamp(source.date, source.ends):
             session["ends_at"] = ends
-        if source.category:
-            session["category"] = source.category
-        if number:
-            session["session_number"] = number
+        if category:
+            session["category"] = category
         if speakers:
             session["speaker_ids"] = speakers
         if description:
@@ -447,7 +442,6 @@ def build_poster_sessions(
             "title": published.title,
             "date": published.date,
             "location": schedule.POSTER_HALL,
-            "session_number": published.number,
             "presentations": presentations,
         }
         if starts := timestamp(published.date, published.starts):

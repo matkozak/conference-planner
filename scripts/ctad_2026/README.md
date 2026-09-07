@@ -230,6 +230,10 @@ never edit the generated candidate as a lasting fix.
 
 ## Identity
 
+CTAD omits the optional display-only `session_number` field for all sessions,
+including poster sessions. Breaks, lunches, walking tours, and the welcome
+ceremony default to the `Social` category.
+
 Session ids are `S<n>` in document order; poster sessions are `PS<n>`. Talks keep
 their source labels (`OC12`), symposium presentations become `S<n>P<m>`, biotech
 showcases `BS<n>`, standalone keynotes use `KEYNOTE<n>`, and posters keep `P<n>`.
