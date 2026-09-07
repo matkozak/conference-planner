@@ -159,9 +159,9 @@ Recorded in `schedule.py`, because no source document carries them:
   `POSTER_SESSIONS` encodes that mapping. An unrecognised theme fails the build
   rather than silently dropping posters.
 
-Poster Session 1 runs from Monday afternoon to Tuesday evening. A session in the
-schema belongs to one date, so it is dated Monday with no end time, and the true
-span is stated in its description.
+Poster Session 1 runs from Monday afternoon to Tuesday evening. Its canonical
+`date` is Monday and its full cross-day span is preserved in `starts_at` and
+`ends_at`.
 
 ## Curated overrides
 

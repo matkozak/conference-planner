@@ -38,6 +38,16 @@ describe("timeRange", () => {
       ),
     ).toBe("09:00–18:30");
   });
+
+  it("labels the closing day of a cross-day range", () => {
+    expect(
+      timeRange(
+        "2026-11-16T14:00:00-05:00",
+        "2026-11-17T17:30:00-05:00",
+        "America/New_York",
+      ),
+    ).toBe("14:00–Tue 17 Nov, 17:30");
+  });
 });
 
 describe("calendar formatting", () => {

@@ -352,6 +352,9 @@ class PosterSessionTest(unittest.TestCase):
         )
         self.assertEqual(built[0]["kind"], "poster-session")
         self.assertEqual(built[0]["presentations"][0]["kind"], "poster")
+        self.assertEqual(
+            built[0]["ends_at"], "2026-11-17T17:30:00-05:00"
+        )
 
     def test_an_unknown_theme_fails_loudly(self) -> None:
         with self.assertRaises(KeyError):

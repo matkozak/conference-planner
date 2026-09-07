@@ -71,7 +71,26 @@ describe("ConferenceProgram v1", () => {
       }
     });
     expect(() => parseConferenceProgram(input)).toThrow(
-      /strictly sorted[\s\S]*containing session date[\s\S]*must be talk/,
+      /strictly sorted[\s\S]*exceed its containing session[\s\S]*must be talk/,
+    );
+  });
+
+  it("accepts a session ending on a later conference day", () => {
+    const input = changed((program) => {
+      const session = program.sessions[0]!;
+      session.ends_at = "2027-03-02T10:00:00+01:00";
+    });
+    expect(parseConferenceProgram(input)).toEqual(input);
+  });
+
+  it("keeps session ends inside the conference and presentations inside sessions", () => {
+    const input = changed((program) => {
+      const session = program.sessions[0]!;
+      session.ends_at = "2027-03-03T10:00:00+01:00";
+      session.presentations[0]!.starts_at = "2027-03-01T08:30:00+01:00";
+    });
+    expect(() => parseConferenceProgram(input)).toThrow(
+      /conference ends[\s\S]*must not precede its containing session/,
     );
   });
 

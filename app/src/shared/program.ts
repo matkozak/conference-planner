@@ -197,9 +197,10 @@ function conferenceProgramInvariantIssues(
       `${sessionPath}.starts_at`,
       issue,
     );
-    validateTimestampDate(
+    validateSessionEndDate(
       session.ends_at,
       session.date,
+      conference.ends_on,
       `${sessionPath}.ends_at`,
       issue,
     );
@@ -214,16 +215,10 @@ function conferenceProgramInvariantIssues(
       const presentationPath = `${sessionPath}.presentations[${presentationIndex}]`;
       recordItemId(itemIds, presentation.id, `${presentationPath}.id`, issue);
       validateScheduledItem(presentation, presentationPath, program, issue);
-      validateTimestampDate(
-        presentation.starts_at,
-        session.date,
-        `${presentationPath}.starts_at`,
-        issue,
-      );
-      validateTimestampDate(
-        presentation.ends_at,
-        session.date,
-        `${presentationPath}.ends_at`,
+      validatePresentationBounds(
+        presentation,
+        session,
+        presentationPath,
         issue,
       );
       if (presentation.kind !== expectedPresentationKind) {
@@ -331,6 +326,60 @@ function validateTimestampDate(
 ): void {
   if (timestamp && timestamp.slice(0, 10) !== expectedDate) {
     issue(path, `must use the containing session date ${expectedDate}`);
+  }
+}
+
+function validateSessionEndDate(
+  timestamp: string | undefined,
+  startsOn: string,
+  conferenceEndsOn: string,
+  path: string,
+  issue: (path: string, message: string) => void,
+): void {
+  if (!timestamp) return;
+  const endsOn = timestamp.slice(0, 10);
+  if (endsOn < startsOn) {
+    issue(path, `must not precede the session date ${startsOn}`);
+  }
+  if (endsOn > conferenceEndsOn) {
+    issue(
+      path,
+      `must not fall after the conference ends on ${conferenceEndsOn}`,
+    );
+  }
+}
+
+function validatePresentationBounds(
+  presentation: Presentation,
+  session: Session,
+  path: string,
+  issue: (path: string, message: string) => void,
+): void {
+  for (const field of ["starts_at", "ends_at"] as const) {
+    const timestamp = presentation[field];
+    if (!timestamp) continue;
+
+    if (timestamp.slice(0, 10) < session.date) {
+      issue(`${path}.${field}`, "must not precede its containing session");
+    }
+    if (
+      session.starts_at &&
+      Date.parse(timestamp) < Date.parse(session.starts_at)
+    ) {
+      issue(`${path}.${field}`, "must not precede its containing session");
+    }
+    if (
+      session.ends_at &&
+      Date.parse(timestamp) > Date.parse(session.ends_at)
+    ) {
+      issue(`${path}.${field}`, "must not exceed its containing session");
+    }
+    if (!session.ends_at && timestamp.slice(0, 10) !== session.date) {
+      issue(
+        `${path}.${field}`,
+        "must use the containing session date when its end is unknown",
+      );
+    }
   }
 }
 

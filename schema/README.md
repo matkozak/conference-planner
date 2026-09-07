@@ -20,7 +20,8 @@ Publication validation also enforces invariants that JSON Schema cannot express:
 - `days` is sorted, unique, within the conference range, and exactly matches the
   dates represented by sessions;
 - sessions and presentations use the documented canonical ordering;
-- timestamps use their containing session's date and do not run backwards;
+- a session's start timestamp uses its canonical `date`; its end may fall on a
+  later conference date; presentation timestamps remain within that span;
 - `talk` items occur in `session` parents and `poster` items in
   `poster-session` parents; and
 - the conference timezone is a recognized IANA name.

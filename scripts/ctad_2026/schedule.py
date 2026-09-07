@@ -30,9 +30,9 @@ class PosterSession:
     date: str
     starts: str | None
     ends: str | None
-    #: Free-text note used where the published span cannot be modelled.
-    note: str
     themes: tuple[str, ...]
+    #: Date of the closing time when the display spans multiple days.
+    ends_on: str | None = None
 
 
 #: Theme keys are the headings as they appear in the posters PDF.
@@ -42,11 +42,7 @@ POSTER_SESSIONS: tuple[PosterSession, ...] = (
         title="Poster Session 1",
         date="2026-11-16",
         starts="14:00:00",
-        ends=None,
-        note=(
-            "Runs from Monday, November 16 at 2:00 p.m. through "
-            "Tuesday, November 17 at 5:30 p.m."
-        ),
+        ends="17:30:00",
         themes=(
             "CLINICAL TRIALS – PHASE IIB & III",
             "CLINICAL TRIALS – PHASE I & IIA",
@@ -55,6 +51,7 @@ POSTER_SESSIONS: tuple[PosterSession, ...] = (
             "EPIDEMIOLOGY",
             "NEW HYPOTHESES – NEW THERAPEUTIC APPROACHES FOR AD",
         ),
+        ends_on="2026-11-17",
     ),
     PosterSession(
         number="2",
@@ -62,7 +59,6 @@ POSTER_SESSIONS: tuple[PosterSession, ...] = (
         date="2026-11-18",
         starts="07:15:00",
         ends="17:30:00",
-        note="",
         themes=(
             "NON-PHARMACOLOGIC INTERVENTIONS",
             "BIOMARKERS (CSF & PLASMA)",
@@ -75,7 +71,6 @@ POSTER_SESSIONS: tuple[PosterSession, ...] = (
         date="2026-11-19",
         starts="07:15:00",
         ends="17:00:00",
-        note="",
         themes=(
             "TRIAL DESIGN, STATISTICAL INNOVATION, AND ANALYTICAL FRAMEWORKS",
             "COGNITIVE AND FUNCTIONAL OUTCOMES",
@@ -83,11 +78,6 @@ POSTER_SESSIONS: tuple[PosterSession, ...] = (
         ),
     ),
 )
-
-#: Poster Session 1 intentionally has no same-day end while multi-day sessions
-#: remain outside schema v1. Its published span is preserved in its description.
-PERMITTED_OPEN_SESSION_IDS = frozenset({"PS1"})
-
 
 def session_for_theme(theme: str) -> PosterSession:
     """Return the poster session displaying ``theme``."""

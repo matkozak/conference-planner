@@ -36,7 +36,21 @@ export function timeRange(
 ): string {
   const a = hhmm(start, timeZone);
   const b = hhmm(end, timeZone);
-  return a && b ? `${a}–${b}` : a || b;
+  if (!start || !end) return a || b;
+
+  const startDay = zonedDay(start, timeZone);
+  const endDay = zonedDay(end, timeZone);
+  return startDay === endDay ? `${a}–${b}` : `${a}–${endDay}, ${b}`;
+}
+
+/** An instant's compact calendar day in an explicit timezone. */
+function zonedDay(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(new Date(iso));
 }
 
 /** "2026-07-12" → "Sun 12 Jul" */

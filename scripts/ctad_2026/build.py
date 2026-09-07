@@ -384,13 +384,11 @@ def build_poster_sessions(
         }
         if starts := timestamp(published.date, published.starts):
             session["starts_at"] = starts
-        if ends := timestamp(published.date, published.ends):
+        if ends := timestamp(published.ends_on or published.date, published.ends):
             session["ends_at"] = ends
-        notes = [published.note] if published.note else []
-        notes.append(
-            "Themes: " + "; ".join(titleize(theme) for theme in published.themes)
+        session["description_html"] = paragraphs_html(
+            ["Themes: " + "; ".join(titleize(theme) for theme in published.themes)]
         )
-        session["description_html"] = paragraphs_html(notes)
         sessions.append(session)
     return sessions
 
@@ -462,10 +460,7 @@ def report(program: dict[str, Any], overrides: Overrides) -> list[str]:
     for session in program["sessions"]:
         if not session["presentations"]:
             notes.append(f"empty session {session['id']}: {session['title'][:90]}")
-        if (
-            session["id"] not in schedule.PERMITTED_OPEN_SESSION_IDS
-            and ("starts_at" not in session or "ends_at" not in session)
-        ):
+        if "starts_at" not in session or "ends_at" not in session:
             missing = [
                 field for field in ("starts_at", "ends_at") if field not in session
             ]
