@@ -36,53 +36,60 @@ describe("program publication", () => {
     expect(second.conferences[0]?.program_hash).toBe("b".repeat(64));
   });
 
-  it("uploads and conditionally promotes the catalog ETag", async () => {
-    const currentHash = "a".repeat(64);
-    const current = catalogWithProgram(
-      { schema_version: 1, conferences: [] },
-      program,
-      currentHash,
-    );
-    const requests: Request[] = [];
-    let promoted = current;
-    vi.spyOn(globalThis, "fetch").mockImplementation(
-      async (request: string | URL | Request) => {
-        const received =
-          request instanceof Request ? request : new Request(request);
-        requests.push(received.clone());
-        if (requests.length === 1) {
-          return Response.json(current, { headers: { ETag: '"catalog-v1"' } });
-        }
-        if (requests.length === 2) return new Response(null, { status: 200 });
-        if (requests.length === 3) return new Response(JSON.stringify(program));
-        if (requests.length === 4) {
-          promoted = JSON.parse(await received.text()) as ConferenceCatalog;
-          return new Response(null, { status: 200 });
-        }
-        if (requests.length === 5) {
-          return Response.json(promoted, {
-            headers: { ETag: '"catalog-v2"' },
-          });
-        }
-        throw new Error(`unexpected request for ${received.url}`);
-      },
-    );
+  it.each(['"catalog-v1"', 'W/"catalog-v1"', null, "missing"])(
+    "uploads and promotes the catalog without preconditions (ETag=%s)",
+    async (etag) => {
+      const currentHash = "a".repeat(64);
+      const current = catalogWithProgram(
+        { schema_version: 1, conferences: [] },
+        program,
+        currentHash,
+      );
+      const requests: Request[] = [];
+      let promoted = current;
+      vi.spyOn(globalThis, "fetch").mockImplementation(
+        async (request: string | URL | Request) => {
+          const received =
+            request instanceof Request ? request : new Request(request);
+          requests.push(received.clone());
+          if (requests.length === 1) {
+            return etag === "missing"
+              ? new Response(null, { status: 404 })
+              : Response.json(current, { headers: etag ? { ETag: etag } : {} });
+          }
+          if (requests.length === 2) return new Response(null, { status: 200 });
+          if (requests.length === 3)
+            return new Response(JSON.stringify(program));
+          if (requests.length === 4) {
+            promoted = JSON.parse(await received.text()) as ConferenceCatalog;
+            return new Response(null, { status: 200 });
+          }
+          if (requests.length === 5) {
+            return Response.json(promoted, {
+              headers: { ETag: '"catalog-v2"' },
+            });
+          }
+          throw new Error(`unexpected request for ${received.url}`);
+        },
+      );
 
-    const result = await publishProgram(program, {
-      accountId: "account",
-      accessKeyId: "access",
-      secretAccessKey: "secret",
-      bucket: "conference-programs",
-    });
+      const result = await publishProgram(program, {
+        accountId: "account",
+        accessKeyId: "access",
+        secretAccessKey: "secret",
+        bucket: "conference-programs",
+      });
 
-    expect(requests).toHaveLength(5);
-    expect(requests[1]?.method).toBe("PUT");
-    expect(requests[1]?.headers.get("If-None-Match")).toBe("*");
-    expect(requests[3]?.method).toBe("PUT");
-    expect(requests[3]?.headers.get("If-Match")).toBe('"catalog-v1"');
-    expect(promoted.conferences[0]?.program_hash).toBe(result.hash);
-    expect(result.changed).toBe(true);
-  });
+      expect(requests).toHaveLength(5);
+      expect(requests[1]?.method).toBe("PUT");
+      expect(requests[1]?.headers.get("If-None-Match")).toBe("*");
+      expect(requests[3]?.method).toBe("PUT");
+      expect(requests[3]?.headers.get("If-Match")).toBeNull();
+      expect(requests[3]?.headers.get("If-None-Match")).toBeNull();
+      expect(promoted.conferences[0]?.program_hash).toBe(result.hash);
+      expect(result.changed).toBe(true);
+    },
+  );
 
   it("verifies an unchanged object without rewriting the catalog", async () => {
     const programJson = JSON.stringify(program);

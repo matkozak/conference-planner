@@ -161,4 +161,5 @@ pnpm run program:publish .programs/aaic-2026.json
 ```
 
 The publisher validates the program, uploads and reads back its immutable
-full-SHA-256 object, and updates `catalog.json` with an ETag concurrency guard.
+full-SHA-256 object, and updates `catalog.json`. Run one publication at a time; overlapping publishes
+can overwrite each other’s catalog changes.

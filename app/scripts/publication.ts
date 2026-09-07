@@ -29,11 +29,6 @@ export interface PublicationResult {
   changed: boolean;
 }
 
-interface CatalogState {
-  catalog: ConferenceCatalog;
-  etag: string | null;
-}
-
 export function programContentHash(programJson: string): string {
   return createHash("sha256").update(programJson).digest("hex");
 }
@@ -53,7 +48,7 @@ export function catalogWithProgram(
   return { ...catalog, conferences };
 }
 
-/** Upload an immutable program, then promote it with a conditional catalog PUT. */
+/** Upload an immutable program, then update the catalog. Run one publisher at a time. */
 export async function publishProgram(
   program: ConferenceProgram,
   config: R2PublicationConfig,
@@ -67,9 +62,9 @@ export async function publishProgram(
   const programJson = JSON.stringify(program);
   const hash = programContentHash(programJson);
   const key = programKey(program.conference.id, hash);
-  const state = await readCatalog(client, config);
-  const current = conferenceById(state.catalog, program.conference.id);
-  const next = catalogWithProgram(state.catalog, program, hash);
+  const catalog = await readCatalog(client, config);
+  const current = conferenceById(catalog, program.conference.id);
+  const next = catalogWithProgram(catalog, program, hash);
 
   if (
     JSON.stringify(current) ===
@@ -96,27 +91,18 @@ export async function publishProgram(
     await verifyProgramObject(client, config, key, programJson);
   }
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "private, max-age=0, must-revalidate",
-  };
-  if (state.etag) headers["If-Match"] = state.etag;
-  else headers["If-None-Match"] = "*";
   const promotion = await r2Fetch(client, config, CATALOG_KEY, {
     method: "PUT",
-    headers,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "private, max-age=0, must-revalidate",
+    },
     body: JSON.stringify(next),
   });
-  if (promotion.status === 412) {
-    throw new Error("catalog changed concurrently; promotion was not applied");
-  }
   if (!promotion.ok) throw await r2Error("promote catalog", promotion);
 
   const published = await readCatalog(client, config);
-  if (
-    conferenceById(published.catalog, program.conference.id)?.program_hash !==
-    hash
-  ) {
+  if (conferenceById(published, program.conference.id)?.program_hash !== hash) {
     throw new Error("catalog read-back did not contain the promoted revision");
   }
   return { hash, changed: true };
@@ -125,18 +111,13 @@ export async function publishProgram(
 async function readCatalog(
   client: AwsClient,
   config: R2PublicationConfig,
-): Promise<CatalogState> {
+): Promise<ConferenceCatalog> {
   const response = await r2Fetch(client, config, CATALOG_KEY);
   if (response.status === 404) {
-    return { catalog: EMPTY_CATALOG, etag: null };
+    return EMPTY_CATALOG;
   }
   if (!response.ok) throw await r2Error("read catalog", response);
-  const etag = response.headers.get("ETag");
-  if (!etag) throw new Error("R2 catalog response had no ETag");
-  return {
-    catalog: parseConferenceCatalog(await response.json()),
-    etag,
-  };
+  return parseConferenceCatalog(await response.json());
 }
 
 async function requiredObject(

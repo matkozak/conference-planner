@@ -84,4 +84,5 @@ pnpm run program:publish .programs/aaic-2026.json
 
 Publishing requires the bucket-scoped R2 credentials documented in the AAIC
 ingestion README. Program publication and Worker deployment are deliberately
-separate operations.
+separate operations. Run one publication at a time: catalog updates are
+unconditional, so overlapping publishes can overwrite each other’s changes.
