@@ -96,6 +96,9 @@ class SourceIntegrityTest(unittest.TestCase):
     def test_every_talk_and_poster_names_at_least_one_speaker(self) -> None:
         for session in self.program["sessions"]:
             for item in session["presentations"]:
+                if item["id"] in self.overrides.allowed_missing_presenters:
+                    self.assertNotIn("speaker_ids", item)
+                    continue
                 self.assertGreaterEqual(len(item.get("speaker_ids", [])), 1, item["id"])
 
     def test_co_authors_are_preserved_as_description_text(self) -> None:
@@ -105,13 +108,20 @@ class SourceIntegrityTest(unittest.TestCase):
             for item in session["presentations"]
             if item.get("description_html")
         ]
-        presentations = sum(len(s["presentations"]) for s in self.program["sessions"])
+        presentations = sum(
+            item["id"] not in self.overrides.allowed_missing_presenters
+            for session in self.program["sessions"]
+            for item in session["presentations"]
+        )
         self.assertEqual(len(with_authors), presentations)
 
     def test_every_description_marks_its_speaker_in_bold(self) -> None:
         people = self.program["people"]
         for session in self.program["sessions"]:
             for item in session["presentations"]:
+                if item["id"] in self.overrides.allowed_missing_presenters:
+                    self.assertNotIn("description_html", item)
+                    continue
                 speaker = people[item["speaker_ids"][0]]["name"]
                 self.assertIn(f"<b>{speaker}</b>", item["description_html"], item["id"])
 

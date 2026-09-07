@@ -6,6 +6,24 @@
     "Run `python3 -m scripts.ctad_2026.build --report` to list what is missing."
   ],
   "sessions": [],
+  "insertions": [
+    {
+      "match": {
+        "title": "Session on Study Design and Phase 1/Phase 2a Studies",
+        "date": "2026-11-18",
+        "starts": "09:55:00"
+      },
+      "expect": {
+        "after": "OC17",
+        "page": 13,
+        "top": 735,
+        "starts": "10:05:00",
+        "text": "—"
+      },
+      "allow_missing_presenter": true,
+      "reason": "September 1 PDF, page 13: the separate 10:05 entry contains only an em dash, with no code or presenter. Preserve it as printed."
+    }
+  ],
   "glyph_repairs": [
     {
       "pattern": "APOE\\s*\\?4",

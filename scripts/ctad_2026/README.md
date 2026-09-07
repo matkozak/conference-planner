@@ -224,9 +224,24 @@ must match the current ordered author list and resolved presenter list (includin
 the sole-author fallback). Each selected presenter must match exactly one author.
 Missing or ambiguous targets, duplicate corrections, and changed expectations
 fail the build, including report mode. Keep a reason and PDF page for review.
-Only presenter corrections are supported for now; add structural replacement
-fields when a source exception actually needs them. Rebuild after corrections;
-never edit the generated candidate as a lasting fix.
+The separate top-level `insertions` array handles reviewed, uncoded source
+entries. The parser stops extending a talk's title once authors or affiliations
+begin; subsequent unrecognized bold text is retained with its page, vertical
+position, nearby talk time, and preceding talk code. Unconsumed text blocks the
+strict build and appears in `--report`; it does not automatically become a talk.
+
+An insertion has the same session `match`, an `expect` object containing the
+fragment's exact `after`, `page`, `top`, `starts`, and `text`, a review `reason`,
+and an explicit `allow_missing_presenter: true`. It inserts that fragment as a
+talk immediately after the matched source talk, using its text verbatim as the
+title and its source start time. Only that inserted talk is exempted from the
+missing-presenter finding. Missing or changed fragments, ambiguous sessions,
+duplicate insertions, and times already occupied by extracted talks fail the
+build. Additional unconsumed attribution still requires review.
+
+The September PDF's 10:05 em dash on page 13 is handled this way: it remains a
+presentation titled `—`, without inventing a source code or presenter. Rebuild
+after corrections; never edit the generated candidate as a lasting fix.
 
 ## Identity
 
@@ -237,6 +252,8 @@ ceremony default to the `Social` category.
 Session ids are `S<n>` in document order; poster sessions are `PS<n>`. Talks keep
 their source labels (`OC12`), symposium presentations become `S<n>P<m>`, biotech
 showcases `BS<n>`, standalone keynotes use `KEYNOTE<n>`, and posters keep `P<n>`.
+Manually inserted uncoded talks use `S<n>T<HHMMSS>`, scoped to their session and
+source start time; they are not assigned inferred `OC` numbers.
 
 People are keyed on normalised name plus organisation, and their ids are a hash
 of that key, so they stay stable no matter what order the sources are read in.

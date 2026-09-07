@@ -12,7 +12,7 @@ import json
 import re
 import sys
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from html import escape
 from pathlib import Path
@@ -55,6 +55,9 @@ class Overrides:
     names: dict[str, str] = field(default_factory=dict)
     orgs: dict[str, str] = field(default_factory=dict)
     sessions: list[dict[str, Any]] = field(default_factory=list)
+    insertions: list[dict[str, Any]] = field(default_factory=list)
+    unconsumed: list[str] = field(default_factory=list)
+    allowed_missing_presenters: set[str] = field(default_factory=set)
     used_chairs: set[str] = field(default_factory=set)
     used_names: set[str] = field(default_factory=set)
     used_orgs: set[str] = field(default_factory=set)
@@ -77,6 +80,7 @@ class Overrides:
             },
             orgs=raw.get("orgs", {}),
             sessions=raw.get("sessions", []),
+            insertions=raw.get("insertions", []),
         )
 
     def repair(self, text: str) -> str:
@@ -180,6 +184,8 @@ def speaker_ids(
 
 def item_id(session_id: str, label: str) -> str:
     """Map a source item label onto a program-unique id."""
+    if label.startswith("Uncoded"):
+        return f"{session_id}T{label.removeprefix('Uncoded')}"
     if match := BIOTECH_LABEL.match(label):
         return f"BS{match.group(1)}"
     if match := PRESENTATION_LABEL.match(label):
@@ -317,7 +323,48 @@ def prepare_sessions(sources: list[Session], overrides: Overrides) -> list[Sessi
                 raise ValueError(f"override presenter must match exactly one author: {name}")
         for author in item.authors:
             author.presenting = author.name in entry["presenters"]
+    apply_insertions(sessions, overrides)
     return sessions
+
+
+def apply_insertions(sessions: list[Session], overrides: Overrides) -> None:
+    """Turn explicitly reviewed source fragments into talks without presenters."""
+    for entry in overrides.insertions:
+        if set(entry) != {"match", "expect", "reason", "allow_missing_presenter"}:
+            raise ValueError("insertion needs match, expect, reason, allow_missing_presenter")
+        match = entry["match"]
+        if not isinstance(match, dict) or set(match) != {"title", "date", "starts"}:
+            raise ValueError("insertion match needs source title, date, starts")
+        if not isinstance(entry["reason"], str) or not entry["reason"].strip():
+            raise ValueError("insertion needs a review reason")
+        if entry["allow_missing_presenter"] is not True:
+            raise ValueError("insertion must explicitly acknowledge the missing presenter")
+        targets = [(index, s) for index, s in enumerate(sessions, start=1)
+                   if {"title": collapse(s.title), "date": s.date, "starts": s.starts} == match]
+        if len(targets) != 1:
+            raise ValueError(f"insertion matched {len(targets)} sessions: {match}")
+        index, session = targets[0]
+        fragments = [f for f in session.unconsumed if asdict(f) == entry["expect"]]
+        if len(fragments) != 1:
+            raise ValueError(f"insertion source fragment changed or is ambiguous: {match}")
+        fragment = fragments[0]
+        if fragment.starts is None or not fragment.text:
+            raise ValueError("inserted talk needs a source time and title")
+        if any(i.starts == fragment.starts for i in session.items):
+            raise ValueError(f"insertion conflicts with an extracted talk at {fragment.starts}")
+        preceding = [i for i, item in enumerate(session.items) if item.label == fragment.after]
+        if len(preceding) != 1:
+            raise ValueError("insertion must follow exactly one extracted talk")
+        label = f"Uncoded{fragment.starts.replace(':', '')}"
+        session.items.insert(preceding[0] + 1, Item(label, fragment.text, starts=fragment.starts))
+        session.unconsumed.remove(fragment)
+        overrides.allowed_missing_presenters.add(item_id(f"S{index}", label))
+    for session in sessions:
+        for fragment in session.unconsumed:
+            overrides.unconsumed.append(
+                f"unconsumed text on PDF page {fragment.page}, y={fragment.top}, "
+                f"time={fragment.starts or '<none>'}, after {fragment.after}: {fragment.text}"
+            )
 
 
 def build_program_sessions(
@@ -505,7 +552,7 @@ def _only(directory: Path, pattern: str) -> Path:
 
 def report(program: dict[str, Any], overrides: Overrides) -> list[str]:
     """Describe anything a human should look at before publishing."""
-    notes: list[str] = []
+    notes: list[str] = list(overrides.unconsumed)
     unused = [
         ("chair", set(overrides.chairs) - overrides.used_chairs),
         ("name", set(overrides.names) - overrides.used_names),
@@ -534,7 +581,8 @@ def report(program: dict[str, Any], overrides: Overrides) -> list[str]:
                 f"missing session bound in {session['id']}: {', '.join(missing)}"
             )
         for item in session["presentations"]:
-            if item["kind"] == "talk" and "speaker_ids" not in item:
+            if (item["kind"] == "talk" and "speaker_ids" not in item
+                    and item["id"] not in overrides.allowed_missing_presenters):
                 notes.append(f"no presenting author resolved for {item['id']}")
         items: list[dict[str, Any]] = [session, *session["presentations"]]
         for item in items:

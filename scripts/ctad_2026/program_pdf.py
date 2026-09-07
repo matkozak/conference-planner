@@ -89,6 +89,17 @@ class Item:
 
 
 @dataclass
+class UnconsumedText:
+    """Text after a talk's attribution that cannot extend its title."""
+
+    after: str
+    page: int
+    top: int
+    starts: str | None
+    text: str
+
+
+@dataclass
 class Session:
     """A scheduled block of the linear program."""
 
@@ -103,6 +114,7 @@ class Session:
     authors: list[Author] = field(default_factory=list)
     affiliations: dict[int, str] = field(default_factory=dict)
     items: list[Item] = field(default_factory=list)
+    unconsumed: list[UnconsumedText] = field(default_factory=list)
 
 
 def clock(value: str) -> str:
@@ -311,6 +323,7 @@ def parse_lines(lines: list[Line], year: int) -> list[Session]:
     session: Session | None = None
     item: Item | None = None
     next_anchor = 0
+    title_closed = False
 
     for role, lines in group_blocks(body):
         first = lines[0]
@@ -363,15 +376,33 @@ def parse_lines(lines: list[Line], year: int) -> list[Session]:
                 for extra in lines[1:]:
                     item.title = collapse(f"{item.title} {extra.text}")
                 session.items.append(item)
+                title_closed = False
             elif item is not None:
-                item.title = collapse(f"{item.title} {text}")
+                if title_closed:
+                    session.unconsumed.append(UnconsumedText(
+                        after=item.label, page=first.page, top=first.top,
+                        starts=_item_time(item_times, first), text=text,
+                    ))
+                else:
+                    item.title = collapse(f"{item.title} {text}")
             elif session.title:
                 session.description.append(text)
             else:
                 session.title = text
             continue
 
+        if (item is not None and session.unconsumed
+                and session.unconsumed[-1].after == item.label
+                and role in {"person", "affiliation"}):
+            session.unconsumed.append(UnconsumedText(
+                after=item.label, page=first.page, top=first.top,
+                starts=_item_time(item_times, first), text=text,
+            ))
+            continue
+
         if role == "affiliation":
+            if item is not None:
+                title_closed = True
             target.affiliations.update(parse_affiliations(lines))
             continue
 
@@ -384,6 +415,8 @@ def parse_lines(lines: list[Line], year: int) -> list[Session]:
                 session.description.append(text)
             continue
 
+        if item is not None:
+            title_closed = True
         target.authors.extend(parse_authors(lines))
 
     return sessions

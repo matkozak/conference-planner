@@ -16,7 +16,7 @@ from scripts.ctad_2026.build import (
     timestamp,
 )
 from scripts.ctad_2026.posters_pdf import Poster, mark_presenter
-from scripts.ctad_2026.program_pdf import Author, Item, Session
+from scripts.ctad_2026.program_pdf import Author, Item, Session, UnconsumedText
 
 
 def overrides(**kwargs: object) -> Overrides:
@@ -600,6 +600,74 @@ class KeynoteAndSessionOverrideTest(unittest.TestCase):
                     entry["typo"] = True
                 with self.assertRaises(ValueError):
                     prepare_sessions(sources, overrides(sessions=entries))
+
+
+class InsertionOverrideTest(unittest.TestCase):
+    def source(self) -> Session:
+        return Session(
+            title="Example session", date="2026-11-16", starts="09:00:00", ends="10:00:00",
+            items=[Item("OC1", "First talk", starts="09:00:00", authors=[Author("Ada")]),
+                   Item("OC3", "Third talk", starts="09:20:00", authors=[Author("Grace")])],
+            unconsumed=[UnconsumedText("OC1", 1, 335, "09:10:00", "—")],
+        )
+
+    def insertion(self) -> dict:
+        return {
+            "match": {"title": "Example session", "date": "2026-11-16", "starts": "09:00:00"},
+            "expect": {"after": "OC1", "page": 1, "top": 335, "starts": "09:10:00", "text": "—"},
+            "allow_missing_presenter": True,
+            "reason": "Synthetic PDF page 1 has a separate dash entry without attribution.",
+        }
+
+    def test_insertion_preserves_order_and_only_acknowledges_its_missing_presenter(self) -> None:
+        source = self.source()
+        state = overrides(insertions=[self.insertion()])
+        people = People()
+        sessions = build_program_sessions([source], people, state)
+        talks = sessions[0]["presentations"]
+        self.assertEqual([t["id"] for t in talks], ["OC1", "S1T091000", "OC3"])
+        self.assertEqual(talks[1]["title"], "—")
+        self.assertEqual(talks[1]["starts_at"], "2026-11-16T09:10:00-05:00")
+        self.assertNotIn("speaker_ids", talks[1])
+        self.assertEqual(len(source.items), 2)
+        self.assertEqual(len(source.unconsumed), 1)
+        program = {"sessions": sessions, "people": people.as_record()}
+        self.assertEqual(report(program, state), [])
+        del talks[0]["speaker_ids"]
+        self.assertIn("no presenting author resolved for OC1", report(program, state))
+
+    def test_unconsumed_text_blocks_without_an_override(self) -> None:
+        state = overrides()
+        sessions = build_program_sessions([self.source()], People(), state)
+        notes = blocking_notes(report({"sessions": sessions, "people": {}}, state))
+        self.assertEqual(len(notes), 1)
+        self.assertIn("PDF page 1, y=335, time=09:10:00, after OC1: —", notes[0])
+
+    def test_changed_or_ambiguous_sources_and_unacknowledged_insertions_fail(self) -> None:
+        for case in ["title", "time", "page", "missing", "duplicate", "ambiguous", "existing", "ack"]:
+            with self.subTest(case=case):
+                source = self.source()
+                sources = [source]
+                entry = self.insertion()
+                entries = [entry]
+                if case == "title":
+                    source.unconsumed[0].text = "New title"
+                elif case == "time":
+                    source.unconsumed[0].starts = "09:11:00"
+                elif case == "page":
+                    source.unconsumed[0].page = 2
+                elif case == "missing":
+                    source.unconsumed = []
+                elif case == "duplicate":
+                    entries.append(entry)
+                elif case == "ambiguous":
+                    sources.append(self.source())
+                elif case == "existing":
+                    source.items.append(Item("OC2", "Now supplied", starts="09:10:00"))
+                else:
+                    entry["allow_missing_presenter"] = False
+                with self.assertRaises(ValueError):
+                    prepare_sessions(sources, overrides(insertions=entries))
 
 
 class OverridesFileTest(unittest.TestCase):

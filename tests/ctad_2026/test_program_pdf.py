@@ -29,6 +29,36 @@ class ClockTest(unittest.TestCase):
 
 
 class SessionStructureTest(unittest.TestCase):
+    def test_text_after_attribution_is_reported_without_extending_the_title(self) -> None:
+        parsed = parse([DAY + [
+            Text(top=181, left=68, font="gutter", text="9:00 a.m."),
+            Text(top=199, left=68, font="gutter", text="10:00 a.m."),
+            Text(top=189, left=194, font="oral", text="ORAL COMMUNICATIONS"),
+            Text(top=230, left=68, font="gutter-item", text="9:00 a.m."),
+            Text(top=230, left=194, font="item-label", text="OC1 "),
+            Text(top=230, left=240, font="item-title", text="A wrapped"),
+            Text(top=250, left=194, font="item-title", text="title"),
+            Text(top=280, left=194, font="person", text="Ada Lovelace"),
+            Text(top=300, left=194, font="affiliation", text="1 University"),
+            Text(top=335, left=68, font="gutter-item", text="9:10 a.m."),
+            Text(top=335, left=194, font="item-title", text="—"),
+            Text(top=365, left=194, font="person", text="Unexpected Author"),
+            Text(top=400, left=194, font="item-label", text="OC3 "),
+            Text(top=400, left=240, font="item-title", text="Next"),
+            Text(top=420, left=194, font="item-title", text="talk"),
+            Text(top=450, left=194, font="person", text="Grace Hopper"),
+            Text(top=480, left=194, font="item-title", text="Unexplained text"),
+        ]])
+
+        session = parsed[0]
+        self.assertEqual([i.title for i in session.items], ["A wrapped title", "Next talk"])
+        self.assertEqual([a.name for a in session.items[0].authors], ["Ada Lovelace"])
+        self.assertEqual([f.text for f in session.unconsumed],
+                         ["—", "Unexpected Author", "Unexplained text"])
+        fragment = session.unconsumed[0]
+        self.assertEqual((fragment.after, fragment.page, fragment.top, fragment.starts),
+                         ("OC1", 1, 335, "09:10:00"))
+
     def test_gutter_time_pairs_open_sessions_and_set_their_bounds(self) -> None:
         parsed = parse(
             [
