@@ -355,7 +355,7 @@ class PosterSessionTest(unittest.TestCase):
         ]
         built = build_poster_sessions(posters, People(), overrides())
 
-        self.assertEqual([session["id"] for session in built], ["PS1", "PS2", "PS3"])
+        self.assertEqual([session["id"] for session in built], ["PT-epidemiology", "PT-biomarkers", "PT-cognitive-functional"])
         self.assertEqual(
             [[item["id"] for item in session["presentations"]] for session in built],
             [["P1"], ["P2"], ["P3"]],
@@ -373,6 +373,18 @@ class PosterSessionTest(unittest.TestCase):
         self.assertEqual(
             built[0]["ends_at"], "2026-11-17T17:30:00-05:00"
         )
+
+    def test_themes_share_a_window_but_have_separate_sessions(self) -> None:
+        built = build_poster_sessions([
+            self.poster("P1", "EPIDEMIOLOGY"),
+            self.poster("P2", "IMAGING (MRI & PET)"),
+        ], People(), overrides())
+        self.assertEqual(len(built), 2)
+        self.assertEqual({s["title"] for s in built}, {"Epidemiology", "Imaging (MRI & PET)"})
+        self.assertEqual(built[0]["starts_at"], built[1]["starts_at"])
+        self.assertEqual(built[0]["ends_at"], built[1]["ends_at"])
+        for session in built:
+            self.assertNotIn(session["title"], session["presentations"][0]["description_html"])
 
     def test_an_unknown_theme_fails_loudly(self) -> None:
         with self.assertRaises(KeyError):

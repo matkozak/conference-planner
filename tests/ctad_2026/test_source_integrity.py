@@ -70,7 +70,7 @@ class SourceIntegrityTest(unittest.TestCase):
         poster_sessions = self.sessions("poster-session")
         posters = [p for s in poster_sessions for p in s["presentations"]]
 
-        self.assertEqual(len(poster_sessions), len(schedule.POSTER_SESSIONS))
+        self.assertEqual(len(poster_sessions), len(schedule.POSTER_THEME_IDS))
         self.assertTrue(posters)
         self.assertTrue(all(session["presentations"] for session in poster_sessions))
 

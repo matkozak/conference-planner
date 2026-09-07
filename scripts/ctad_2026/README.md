@@ -170,7 +170,10 @@ Recorded in `schedule.py`, because no source document carries them:
   synthetic `Main Hall` or `Poster Hall` location;
 - **the poster schedule.** The posters PDF groups posters by theme only. The
   published poster-session schedule assigns those themes to days, and
-  `POSTER_SESSIONS` encodes that mapping. An unrecognised theme fails the build
+  `POSTER_SESSIONS` encodes that mapping. Each theme becomes its own app session,
+  titled with the theme and inheriting the published display window. Individual
+  poster descriptions contain attribution only, without a repeated theme heading.
+  An unrecognised theme fails the build
   rather than silently dropping posters.
 
 Poster Session 1 runs from Monday afternoon to Tuesday evening. Its canonical
@@ -263,7 +266,8 @@ CTAD omits the optional display-only `session_number` field for all sessions,
 including poster sessions. Breaks, lunches, walking tours, and the welcome
 ceremony default to the `Social` category.
 
-Session ids are `S<n>` in document order; poster sessions are `PS<n>`. Talks keep
+Session ids are `S<n>` in document order; poster theme sessions use explicit stable
+`PT-…` ids from `POSTER_THEME_IDS`, independent of display-window numbering. Talks keep
 their source labels (`OC12`), symposium presentations become `S<n>P<m>`, biotech
 showcases `BS<n>`, standalone keynotes use `KEYNOTE<n>`, and posters keep `P<n>`.
 Manually inserted uncoded talks use `S<n>T<HHMMSS>`, scoped to their session and

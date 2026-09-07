@@ -458,15 +458,20 @@ def presenter_id(
 def build_poster_sessions(
     posters: list[posters_pdf.Poster], people: People, overrides: Overrides
 ) -> list[dict[str, Any]]:
-    """Group posters into the published poster sessions."""
+    """Group posters by theme, retaining their published display windows."""
     grouped: dict[str, list[posters_pdf.Poster]] = {}
     for poster in posters:
-        published = schedule.session_for_theme(poster.theme)
-        grouped.setdefault(published.number, []).append(poster)
+        schedule.session_for_theme(poster.theme)
+        if poster.theme not in schedule.POSTER_THEME_IDS:
+            raise KeyError(f"no stable session id for theme {poster.theme!r}")
+        grouped.setdefault(poster.theme, []).append(poster)
 
     sessions: list[dict[str, Any]] = []
-    for published in schedule.POSTER_SESSIONS:
-        members = grouped.get(published.number, [])
+    for theme, theme_id in schedule.POSTER_THEME_IDS.items():
+        members = grouped.get(theme, [])
+        if not members:
+            continue
+        published = schedule.session_for_theme(theme)
         presentations: list[dict[str, Any]] = []
         for poster in members:
             presentation: dict[str, Any] = {
@@ -474,8 +479,7 @@ def build_poster_sessions(
                 "id": poster.label,
                 "title": overrides.repair(collapse(poster.title)),
                 "location": poster.label + (" [Remote]" if poster.remote else ""),
-                "description_html": f"{escape(titleize(poster.theme))}<br>"
-                + authors_html(
+                "description_html": authors_html(
                     poster.authors,
                     poster.affiliations,
                     overrides,
@@ -493,8 +497,8 @@ def build_poster_sessions(
 
         session: dict[str, Any] = {
             "kind": "poster-session",
-            "id": f"PS{published.number}",
-            "title": published.title,
+            "id": theme_id,
+            "title": titleize(theme),
             "date": published.date,
             "location": schedule.POSTER_HALL,
             "presentations": presentations,
@@ -503,9 +507,7 @@ def build_poster_sessions(
             session["starts_at"] = starts
         if ends := timestamp(published.ends_on or published.date, published.ends):
             session["ends_at"] = ends
-        session["description_html"] = paragraphs_html(
-            ["Themes: " + "; ".join(titleize(theme) for theme in published.themes)]
-        )
+        session["description_html"] = paragraphs_html([published.title])
         sessions.append(session)
     return sessions
 

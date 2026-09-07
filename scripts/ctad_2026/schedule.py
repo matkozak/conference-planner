@@ -79,6 +79,23 @@ POSTER_SESSIONS: tuple[PosterSession, ...] = (
     ),
 )
 
+# Stable app identities, independent of the published display-window numbering.
+POSTER_THEME_IDS = {
+    "CLINICAL TRIALS – PHASE IIB & III": "PT-phase-2b-3",
+    "CLINICAL TRIALS – PHASE I & IIA": "PT-phase-1-2a",
+    "IMAGING (MRI & PET)": "PT-imaging",
+    "ARTIFICIAL INTELLIGENCE-DRIVEN INNOVATION IN ALZHEIMER’S THERAPEUTICS": "PT-ai",
+    "EPIDEMIOLOGY": "PT-epidemiology",
+    "NEW HYPOTHESES – NEW THERAPEUTIC APPROACHES FOR AD": "PT-new-therapies",
+    "NON-PHARMACOLOGIC INTERVENTIONS": "PT-non-pharmacologic",
+    "BIOMARKERS (CSF & PLASMA)": "PT-biomarkers",
+    "PRE-CLINICAL, EARLY DISCOVERY AND MECHANISTIC RESEARCH": "PT-preclinical",
+    "TRIAL DESIGN, STATISTICAL INNOVATION, AND ANALYTICAL FRAMEWORKS": "PT-trial-design",
+    "COGNITIVE AND FUNCTIONAL OUTCOMES": "PT-cognitive-functional",
+    "DIGITAL ENDPOINTS, REMOTE MONITORING, AND CONNECTED HEALTH TOOLS": "PT-digital",
+}
+
+
 def session_for_theme(theme: str) -> PosterSession:
     """Return the poster session displaying ``theme``."""
     for session in POSTER_SESSIONS:
