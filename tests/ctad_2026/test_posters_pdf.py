@@ -1,6 +1,7 @@
 import unittest
 
 from scripts.ctad_2026 import posters_pdf
+from scripts.ctad_2026.program_pdf import parse_affiliations
 from scripts.ctad_2026.pdf import lines_from_runs, runs_from_xml
 from tests.ctad_2026.fixtures import Text, document
 
@@ -83,6 +84,21 @@ class PosterStructureTest(unittest.TestCase):
 
 
 class PosterAuthorTest(unittest.TestCase):
+    def test_company_superscript_does_not_overwrite_an_affiliation(self) -> None:
+        lines = lines_from_runs(runs_from_xml(document([[
+            Text(top=227, left=68, font="affiliation-marker", text="2"),
+            Text(top=226, left=75, font="affiliation", text="Example Institute, "),
+            Text(top=227, left=200, font="affiliation-marker", text="3"),
+            Text(top=226, left=207, font="affiliation", text="C"),
+            Text(top=227, left=214, font="affiliation-marker", text="2"),
+            Text(top=226, left=220, font="affiliation", text="N Diagnostics, "),
+            Text(top=227, left=340, font="affiliation-marker", text="4"),
+            Text(top=226, left=347, font="affiliation", text="Another Institute"),
+        ]])))
+        self.assertEqual(parse_affiliations(lines), {
+            2: "Example Institute", 3: "C2N Diagnostics", 4: "Another Institute",
+        })
+
     def test_standalone_comma_separates_authors(self) -> None:
         posters = parse([[Text(top=70, left=68, font="poster-theme", text="IMAGING"),
                           *poster_entry(138, "P33", "Example", "Ada Lovelace"),

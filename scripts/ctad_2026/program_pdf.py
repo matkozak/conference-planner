@@ -294,7 +294,17 @@ def parse_affiliations(lines: list[Line]) -> dict[int, str]:
     key: int | None = None
     buffer: list[str] = []
     for line in lines:
-        for run in line.runs:
+        for index, run in enumerate(line.runs):
+            # C²N's superscript belongs to the company name, not a new affiliation.
+            if (
+                run.text.strip() == "2"
+                and buffer
+                and re.search(r"\bC$", buffer[-1])
+                and index + 1 < len(line.runs)
+                and line.runs[index + 1].text.startswith("N Diagnostics")
+            ):
+                buffer.append("2")
+                continue
             if run.size <= 6:
                 if key is not None:
                     affiliations[key] = collapse("".join(buffer)).strip(" ,")
