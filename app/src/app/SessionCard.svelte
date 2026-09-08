@@ -45,11 +45,7 @@
       >
       {#if session.location}<span>{session.location}</span>{/if}
     </div>
-    <div class="title">
-      <span>{session.title}</span><span class="chevron" aria-hidden="true"
-        >{open ? "−" : "+"}</span
-      >
-    </div>
+    <div class="title">{session.title}</div>
     <div class="meta">
       {#if session.category}<span class="chip">{session.category}</span>{/if}
       {#if session.presentations.length}
@@ -116,14 +112,7 @@
     outline-offset: -3px;
   }
   .title {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
     overflow-wrap: anywhere;
-  }
-  .chevron {
-    flex-shrink: 0;
-    color: var(--accent);
   }
   .session-body {
     padding: 0 0.75rem 0.75rem;
