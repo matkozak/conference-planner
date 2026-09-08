@@ -54,6 +54,12 @@
     margin-top: 1rem;
   }
 
+  h2 {
+    font-size: 1rem;
+    color: var(--accent);
+    margin: 1.25rem 0 0.5rem;
+  }
+
   .offline {
     font-size: 0.75rem;
     font-weight: 400;

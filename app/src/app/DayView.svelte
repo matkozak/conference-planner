@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import type { Session } from "../shared/program";
   import {
     gotoSearch,
@@ -16,6 +17,20 @@
   import TzNote from "./TzNote.svelte";
 
   let { day }: { day: string } = $props();
+
+  let expanded = $state<{ day: string; id: string } | null>(null);
+
+  async function toggleSession(id: string, header: HTMLButtonElement) {
+    const top = header.getBoundingClientRect().top;
+    expanded = expanded?.day === day && expanded.id === id ? null : { day, id };
+    await tick();
+    // Measure the residual movement after layout (including browser anchoring).
+    // Near the start/end of the page, the browser clamps to available scroll space.
+    window.scrollBy({
+      top: header.getBoundingClientRect().top - top,
+      behavior: "instant",
+    });
+  }
 
   /** Sessions are pre-sorted by start time; group consecutive equal times. */
   const groups = $derived.by(() => {
@@ -59,7 +74,11 @@
       <section>
         <h2 class="timeslot">{group.time}</h2>
         {#each group.sessions as session (session.id)}
-          <SessionCard {session} />
+          <SessionCard
+            {session}
+            open={expanded?.day === day && expanded.id === session.id}
+            ontoggle={(header) => void toggleSession(session.id, header)}
+          />
         {/each}
       </section>
     {:else}
