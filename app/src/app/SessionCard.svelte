@@ -71,13 +71,15 @@
   <div id={`session-${session.id}`} hidden={!open}>
     {#if open}
       <div class="session-body">
-        <button class="open-session" onclick={() => gotoSession(session.id)}
-          >Open session →</button
-        >
         {#if speakerNames(session).length}
           <p class="speakers">{speakerNames(session).join(" · ")}</p>
         {/if}
-        <RsvpBar itemId={session.id} />
+        <div class="session-actions">
+          <RsvpBar itemId={session.id} />
+          <button class="open-session" onclick={() => gotoSession(session.id)}
+            >Open session →</button
+          >
+        </div>
         {#if session.description_html}<div class="desc">
             {@html session.description_html}
           </div>{/if}
@@ -127,8 +129,13 @@
     padding: 0 0.75rem 0.75rem;
     overflow-wrap: anywhere;
   }
+  .session-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 0.75rem;
+  }
   .open-session {
-    display: block;
     margin-left: auto;
     min-height: 2.75rem;
     color: var(--accent);
