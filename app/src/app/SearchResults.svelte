@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SearchEntry } from "./store.svelte";
-  import { entryKind, gotoSession } from "./store.svelte";
+  import { entryKind, gotoSession, ui } from "./store.svelte";
+  import { visibleDays } from "./schedule";
   import { dayLabel, hhmm, timeRange } from "./format";
   import { selectedTimeZone } from "./tz.svelte";
 
@@ -24,6 +25,11 @@
 
 {#each entries as result, i (result.talk?.id ?? result.session.id)}
   {@const kind = entryKind(result)}
+  {@const days = visibleDays(
+    result.session,
+    ui.program!.conference.timezone,
+    result.talk,
+  )}
   {#if i === exactCount}
     <p class="fuzzy-divider">
       {exactCount === 0
@@ -40,7 +46,11 @@
     </div>
     <div class="meta">
       <span class="kind">{KIND_LABEL[kind]}</span>
-      <span>{dayLabel(result.session.date)}</span>
+      <span
+        >{dayLabel(days[0]!)}{#if days.length > 1}–{dayLabel(
+            days[days.length - 1]!,
+          )}{/if}</span
+      >
       {#if kind === "poster"}
         {#if result.talk?.location}<span>{result.talk.location}</span>{/if}
       {:else}

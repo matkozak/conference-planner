@@ -5,12 +5,14 @@
  */
 import { rsvps } from "./notebook.svelte";
 import type { SearchEntry } from "./store.svelte";
-import { isPosterSession, itemsById } from "./store.svelte";
+import { isPosterSession, itemsById, ui } from "./store.svelte";
+import { visibleDays } from "./schedule";
 
 export interface PlanItem {
   entry: SearchEntry;
   startsAt: string;
   authors: string[];
+  continuing: boolean;
 }
 
 export interface PlanDays {
@@ -31,9 +33,16 @@ export function planDays(filter?: (authors: string[]) => boolean): PlanDays {
     if (!entry) continue;
     const startsAt = entry.talk?.starts_at ?? entry.session.starts_at ?? "";
     const byDay = isPosterSession(entry.session) ? posters : talks;
-    const list = byDay.get(entry.session.date) ?? [];
-    list.push({ entry, startsAt, authors });
-    byDay.set(entry.session.date, list);
+    const days = visibleDays(
+      entry.session,
+      ui.program!.conference.timezone,
+      entry.talk,
+    );
+    for (const day of days) {
+      const list = byDay.get(day) ?? [];
+      list.push({ entry, startsAt, authors, continuing: day !== days[0] });
+      byDay.set(day, list);
+    }
   }
   for (const byDay of [talks, posters]) {
     for (const list of byDay.values()) {
@@ -43,11 +52,13 @@ export function planDays(filter?: (authors: string[]) => boolean): PlanDays {
   return { talks: sortDays(talks), posters: sortDays(posters) };
 }
 
-/** Total items across all days of one plan map (for tab counts). */
+/** Unique items across all days of one plan map (for tab counts). */
 export function planCount(days: Map<string, PlanItem[]>): number {
-  let n = 0;
-  for (const list of days.values()) n += list.length;
-  return n;
+  const ids = new Set<string>();
+  for (const list of days.values()) {
+    for (const { entry } of list) ids.add(entry.talk?.id ?? entry.session.id);
+  }
+  return ids.size;
 }
 
 function sortDays(days: Map<string, PlanItem[]>): Map<string, PlanItem[]> {

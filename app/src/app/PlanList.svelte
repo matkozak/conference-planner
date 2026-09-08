@@ -20,8 +20,13 @@
 {/if}
 {#each [...days] as [day, items] (day)}
   <h3>{dayLabel(day)}</h3>
-  {#each items as { entry, startsAt, authors } (entry.talk?.id ?? entry.session.id)}
-    <PlanRow {entry} {startsAt} authors={showAuthors ? authors : []} />
+  {#each items as { entry, startsAt, authors, continuing } (entry.talk?.id ?? entry.session.id)}
+    <PlanRow
+      {entry}
+      {startsAt}
+      {continuing}
+      authors={showAuthors ? authors : []}
+    />
   {/each}
 {/each}
 

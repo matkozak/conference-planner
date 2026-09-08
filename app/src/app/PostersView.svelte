@@ -2,6 +2,7 @@
   import {
     gotoSession,
     posterSessionsByDay,
+    sessionsById,
     search,
     searchState,
   } from "./store.svelte";
@@ -16,8 +17,8 @@
   );
 
   // Computed once at mount; the program (and these maps) never change.
-  const posterCount = [...posterSessionsByDay.values()]
-    .flat()
+  const posterCount = [...sessionsById.values()]
+    .filter((s) => s.kind === "poster-session")
     .reduce((n, s) => n + s.presentations.length, 0);
 </script>
 

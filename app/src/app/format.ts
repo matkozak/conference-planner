@@ -33,6 +33,7 @@ export function timeRange(
   start: string | undefined,
   end: string | undefined,
   timeZone: string,
+  includeDay = false,
 ): string {
   const a = hhmm(start, timeZone);
   const b = hhmm(end, timeZone);
@@ -40,7 +41,9 @@ export function timeRange(
 
   const startDay = zonedDay(start, timeZone);
   const endDay = zonedDay(end, timeZone);
-  return startDay === endDay ? `${a}–${b}` : `${a}–${endDay}, ${b}`;
+  return startDay === endDay
+    ? `${includeDay ? `${startDay}, ` : ""}${a}–${b}`
+    : `${startDay}, ${a}\u2009–\u2009${endDay}, ${b}`;
 }
 
 /** An instant's compact calendar day in an explicit timezone. */

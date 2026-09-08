@@ -8,6 +8,8 @@
   } from "./store.svelte";
   import { dayTab, hhmm } from "./format";
   import { selectedTimeZone } from "./tz.svelte";
+  import { visibleDays } from "./schedule";
+  import { ui } from "./store.svelte";
   import SearchBox from "./SearchBox.svelte";
   import SessionCard from "./SessionCard.svelte";
   import SearchResults from "./SearchResults.svelte";
@@ -19,7 +21,10 @@
   const groups = $derived.by(() => {
     const out: { time: string; sessions: Session[] }[] = [];
     for (const s of sessionsByDay.get(day) ?? []) {
-      const time = hhmm(s.starts_at, selectedTimeZone()) || "—";
+      const time =
+        day !== visibleDays(s, ui.program!.conference.timezone)[0]
+          ? "Continuing"
+          : hhmm(s.starts_at, selectedTimeZone()) || "—";
       const last = out[out.length - 1];
       if (last && last.time === time) last.sessions.push(s);
       else out.push({ time, sessions: [s] });

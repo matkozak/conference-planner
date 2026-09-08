@@ -34,10 +34,12 @@
   <main class="detail">
     <h1 class="detail-title">{session.title}</h1>
     <p class="when">
-      {dayLabel(session.date)} · {timeRange(
+      {#if !session.starts_at || !session.ends_at}{dayLabel(session.date)} ·
+      {/if}{timeRange(
         session.starts_at,
         session.ends_at,
         selectedTimeZone(),
+        true,
       )}
       {#if session.location}&nbsp;· {session.location}{/if}
     </p>

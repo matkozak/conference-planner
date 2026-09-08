@@ -29,6 +29,16 @@ describe("hhmm", () => {
 });
 
 describe("timeRange", () => {
+  it("can include the day for a same-day detail heading", () => {
+    expect(
+      timeRange(
+        "2026-11-16T14:00:00-05:00",
+        "2026-11-16T17:30:00-05:00",
+        "America/New_York",
+        true,
+      ),
+    ).toBe("Mon 16 Nov, 14:00–17:30");
+  });
   it("passes the zone through to both ends", () => {
     expect(
       timeRange(
@@ -39,14 +49,14 @@ describe("timeRange", () => {
     ).toBe("09:00–18:30");
   });
 
-  it("labels the closing day of a cross-day range", () => {
+  it("labels both days of a cross-day range", () => {
     expect(
       timeRange(
         "2026-11-16T14:00:00-05:00",
         "2026-11-17T17:30:00-05:00",
         "America/New_York",
       ),
-    ).toBe("14:00–Tue 17 Nov, 17:30");
+    ).toBe("Mon 16 Nov, 14:00\u2009–\u2009Tue 17 Nov, 17:30");
   });
 });
 

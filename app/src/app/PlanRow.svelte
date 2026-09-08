@@ -9,8 +9,14 @@
   let {
     entry,
     startsAt,
+    continuing,
     authors = [],
-  }: { entry: SearchEntry; startsAt: string; authors?: string[] } = $props();
+  }: {
+    entry: SearchEntry;
+    startsAt: string;
+    continuing: boolean;
+    authors?: string[];
+  } = $props();
 
   const loc = $derived(entry.talk?.location ?? entry.session.location);
 </script>
@@ -19,7 +25,11 @@
   class="row"
   onclick={() => gotoSession(entry.session.id, entry.talk?.id)}
 >
-  <span class="time">{hhmm(startsAt, selectedTimeZone()) || "·"}</span>
+  <span class="time"
+    >{continuing
+      ? "Continues"
+      : hhmm(startsAt, selectedTimeZone()) || "·"}</span
+  >
   <span class="what">
     {entry.talk?.title ?? entry.session.title}
     {#if entry.talk}

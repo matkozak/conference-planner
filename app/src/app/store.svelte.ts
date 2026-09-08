@@ -18,6 +18,7 @@ import type {
   Session,
 } from "../shared/program";
 import { todayInTimeZone } from "./format";
+import { visibleDays } from "./schedule";
 import { setVenueTimeZone } from "./tz.svelte";
 
 export type Route =
@@ -235,7 +236,7 @@ function rememberDay(day: string): void {
 
 function initialDay(): string {
   const program = ui.program;
-  const days = program?.days ?? [];
+  const days = [...sessionsByDay.keys()];
   const today = conferenceToday();
   const key = program ? dayKey(program.conference.id) : "";
   const legacy =
@@ -316,14 +317,21 @@ function buildIndexes(program: ConferenceProgram): void {
     (a.starts_at ?? "").localeCompare(b.starts_at ?? "") ||
     a.title.localeCompare(b.title);
 
-  for (const day of program.days) {
+  const days = new Set(program.days);
+  for (const session of program.sessions) {
+    for (const day of visibleDays(session, program.conference.timezone))
+      days.add(day);
+  }
+  for (const day of [...days].sort()) {
     sessionsByDay.set(day, []);
     posterSessionsByDay.set(day, []);
   }
   for (const s of [...program.sessions].sort(byStart)) {
     sessionsById.set(s.id, s);
     const dayMap = isPosterSession(s) ? posterSessionsByDay : sessionsByDay;
-    dayMap.get(s.date)?.push(s);
+    for (const day of visibleDays(s, program.conference.timezone)) {
+      dayMap.get(day)?.push(s);
+    }
   }
   // Drop days that have no poster sessions at all (keeps the tab tidy).
   for (const [day, list] of posterSessionsByDay) {
@@ -407,7 +415,10 @@ export function search(query: string, opts: SearchOptions = {}): RankedResults {
 
   const keep = (e: SearchEntry) =>
     (scope !== "posters" || entryKind(e) === "poster") &&
-    (day === undefined || e.session.date === day);
+    (day === undefined ||
+      visibleDays(e.session, ui.program!.conference.timezone, e.talk).includes(
+        day,
+      ));
 
   const entries: SearchEntry[] = [];
   const seen = new Set<number>();

@@ -11,6 +11,7 @@
     isPosterSession,
     savedScroll,
     sessionsById,
+    sessionsByDay,
     ui,
   } from "./store.svelte";
   import { connectNotebook } from "./notebook.svelte";
@@ -73,7 +74,7 @@
       aria-label="Back">←</button
     >
     <nav class="days">
-      {#each ui.program.days as day (day)}
+      {#each [...sessionsByDay.keys()] as day (day)}
         {@const [wd, num] = dayTab(day).split(" ")}
         <button
           class="day-tab"
