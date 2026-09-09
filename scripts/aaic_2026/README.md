@@ -147,7 +147,7 @@ Build and validate the app-side candidate:
 
 ```bash
 cd app
-pnpm run program
+pnpm run aaic:build
 pnpm run check
 pnpm run test
 ```

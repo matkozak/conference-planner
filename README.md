@@ -73,7 +73,7 @@ Build the current AAIC source into a validated publication candidate:
 
 ```bash
 cd app
-pnpm run program
+pnpm run aaic:build
 ```
 
 Publish a reviewed candidate independently of an app deployment:

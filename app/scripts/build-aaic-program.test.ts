@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { AAIC_DATA_DIR, buildAaicProgram } from "./build-program.ts";
+import { AAIC_DATA_DIR, buildAaicProgram } from "./build-aaic-program.ts";
 
 describe("current AAIC program", () => {
   const hasLocalData = ["sessions.json", "people.json"].every((name) =>

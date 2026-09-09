@@ -60,7 +60,7 @@ points at `app/`:
 
 ```bash
 pnpm install      # install pinned dependencies
-pnpm run program  # build the current AAIC publication candidate
+pnpm run aaic:build  # build the current AAIC publication candidate
 pnpm run program:check <program.json>    # validate a candidate
 pnpm run program:publish <program.json>  # publish a candidate to R2
 pnpm run ctad:build    # build and fully verify the CTAD candidate

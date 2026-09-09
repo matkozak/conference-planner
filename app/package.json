@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "program": "node scripts/build-program.ts",
+    "aaic:build": "node scripts/build-aaic-program.ts",
     "program:check": "node scripts/check-program.ts",
     "program:publish": "node scripts/publish-program.ts",
     "ctad:build": "node scripts/ctad-workflow.ts build",
