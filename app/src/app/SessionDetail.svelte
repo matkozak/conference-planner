@@ -36,6 +36,7 @@
     {#if session.description_html}
       <p class="desc">{@html session.description_html}</p>
     {/if}
+    <NoteList itemId={session.id} />
 
     {#if session.presentations.length}
       <h2>
@@ -48,8 +49,6 @@
         <TalkList {session} {talk} />
       {/key}
     {/if}
-
-    <NoteList itemId={session.id} />
   </main>
 {:else}
   <main class="center"><p>Session not found.</p></main>

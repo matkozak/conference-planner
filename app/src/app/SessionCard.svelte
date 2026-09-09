@@ -79,8 +79,17 @@
         {#if session.description_html}<div class="desc">
             {@html session.description_html}
           </div>{/if}
-        <TalkList {session} inline />
         <NoteList itemId={session.id} />
+        {#if session.presentations.length}
+          <h2 class="talk-list-title">
+            {session.presentations.length}
+            {isPosterSession(session) ? "poster" : "talk"}{session.presentations
+              .length === 1
+              ? ""
+              : "s"}
+          </h2>
+          <TalkList {session} inline />
+        {/if}
       </div>
     {/if}
   </div>
@@ -129,6 +138,13 @@
     min-height: 2.75rem;
     color: var(--accent);
     font-size: 0.8125rem;
+  }
+  .talk-list-title {
+    margin: 1.25rem 0 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent);
+    font-size: 1rem;
   }
   .attendees {
     display: inline-flex;
