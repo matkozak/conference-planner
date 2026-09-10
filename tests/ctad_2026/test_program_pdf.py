@@ -148,6 +148,39 @@ class SessionStructureTest(unittest.TestCase):
 
 
 class AuthorBindingTest(unittest.TestCase):
+    def test_ahead_study_superscript_is_not_an_affiliation_marker(self) -> None:
+        lines = lines_from_runs(
+            runs_from_xml(
+                document(
+                    [[
+                        Text(top=100, left=68, font="affiliation-marker", text="3"),
+                        Text(
+                            top=99,
+                            left=71,
+                            font="affiliation",
+                            text="Eisai Inc., ",
+                        ),
+                        Text(top=100, left=220, font="affiliation-marker", text="4"),
+                        Text(top=99, left=223, font="affiliation", text="AHEAD "),
+                        Text(top=100, left=270, font="affiliation-marker", text="3"),
+                        Text(top=99, left=273, font="affiliation", text="-"),
+                        Text(top=100, left=280, font="affiliation-marker", text="45"),
+                        Text(
+                            top=99,
+                            left=290,
+                            font="affiliation",
+                            text=" Study Team",
+                        ),
+                    ]]
+                )
+            )
+        )
+
+        self.assertEqual(
+            program_pdf.parse_affiliations(lines),
+            {3: "Eisai Inc.", 4: "AHEAD Study Team"},
+        )
+
     def test_superscript_markers_bind_authors_to_the_affiliation_block(self) -> None:
         parsed = parse(
             [

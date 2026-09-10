@@ -240,6 +240,30 @@ def _continues_name(previous: Line) -> bool:
     return not last.text.rstrip().endswith(",")
 
 
+def _is_ahead_study_component(line: Line, index: int) -> bool:
+    """Ignore the superscripted ``3-45`` in ``AHEAD 3-45 Study Team``."""
+    run = line.runs[index]
+    before = "".join(previous.text for previous in line.runs[:index])
+    after = "".join(next_run.text for next_run in line.runs[index + 1:])
+    component = run.text.strip()
+    if component == "3":
+        return bool(
+            re.search(r"AHEAD\s*$", before, re.IGNORECASE)
+            and re.match(r"\s*-\s*45\s+STUDY TEAM\b", after, re.IGNORECASE)
+        )
+    if component == "-":
+        return bool(
+            re.search(r"AHEAD\s+3\s*$", before, re.IGNORECASE)
+            and re.match(r"\s*45\s+STUDY TEAM\b", after, re.IGNORECASE)
+        )
+    if component == "45":
+        return bool(
+            re.search(r"AHEAD\s+3\s*-\s*$", before, re.IGNORECASE)
+            and re.match(r"\s*STUDY TEAM\b", after, re.IGNORECASE)
+        )
+    return False
+
+
 def parse_authors(lines: list[Line]) -> list[Author]:
     """Read a comma-separated author list with superscript affiliation markers."""
     authors: list[Author] = []
@@ -295,6 +319,8 @@ def parse_affiliations(lines: list[Line]) -> dict[int, str]:
     buffer: list[str] = []
     for line in lines:
         for index, run in enumerate(line.runs):
+            if _is_ahead_study_component(line, index):
+                continue
             # C²N's superscript belongs to the company name, not a new affiliation.
             if (
                 run.text.strip() == "2"
