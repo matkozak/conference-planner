@@ -36,7 +36,10 @@
     {#if session.description_html}
       <p class="desc">{@html session.description_html}</p>
     {/if}
-    <NoteList itemId={session.id} />
+    <NoteList
+      itemId={session.id}
+      allowCreate={session.presentations.length === 0}
+    />
 
     {#if session.presentations.length}
       <h2>

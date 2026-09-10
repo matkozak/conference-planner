@@ -2,13 +2,17 @@
   import { createNote, notes, notesFor } from "./notebook.svelte";
   import NoteCard from "./NoteCard.svelte";
 
-  let { itemId }: { itemId: string } = $props();
+  let {
+    itemId,
+    allowCreate = true,
+  }: { itemId: string; allowCreate?: boolean } = $props();
 
   const itemNotes = $derived(notesFor(itemId));
 
   let newBody = $state("");
 
   function submit(): void {
+    if (!allowCreate) return;
     const trimmed = newBody.trim();
     if (!trimmed) return;
     createNote(itemId, trimmed);
@@ -16,38 +20,42 @@
   }
 </script>
 
-<section class="notes">
-  <h2>
-    Notes ({itemNotes.length})
-    {#if !notes.connected}<span class="offline">· reconnecting…</span>{/if}
-  </h2>
+{#if allowCreate || itemNotes.length}
+  <section class="notes">
+    <h2>
+      Notes ({itemNotes.length})
+      {#if !notes.connected}<span class="offline">· reconnecting…</span>{/if}
+    </h2>
 
-  {#each itemNotes as note (note.id)}
-    <NoteCard {note} />
-  {/each}
+    {#each itemNotes as note (note.id)}
+      <NoteCard {note} />
+    {/each}
 
-  <form
-    class="note-form"
-    onsubmit={(e) => {
-      e.preventDefault();
-      submit();
-    }}
-  >
-    <textarea
-      class="note-input"
-      placeholder="Add a note…"
-      bind:value={newBody}
-      onkeydown={(e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
+    {#if allowCreate}
+      <form
+        class="note-form"
+        onsubmit={(e) => {
           e.preventDefault();
           submit();
-        }
-      }}></textarea>
-    <button class="note-submit" type="submit" disabled={!newBody.trim()}
-      >Post</button
-    >
-  </form>
-</section>
+        }}
+      >
+        <textarea
+          class="note-input"
+          placeholder="Add a note…"
+          bind:value={newBody}
+          onkeydown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              submit();
+            }
+          }}></textarea>
+        <button class="note-submit" type="submit" disabled={!newBody.trim()}
+          >Post</button
+        >
+      </form>
+    {/if}
+  </section>
+{/if}
 
 <style>
   .notes {
