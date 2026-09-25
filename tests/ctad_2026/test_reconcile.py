@@ -5,6 +5,7 @@ from scripts.ctad_2026.reconcile import (
     compare,
     publication_blockers,
     publication_hash,
+    reconcile_identities,
     render,
 )
 
@@ -129,7 +130,7 @@ class ReconcileTest(unittest.TestCase):
         self.assertIn("Changed/removed items with user content: 1", output)
         self.assertIn("1 note(s), 1 RSVP(s)", output)
 
-    def test_user_content_change_requires_explicit_acknowledgement(self) -> None:
+    def test_content_changes_to_the_same_identity_do_not_block(self) -> None:
         baseline = program()
         candidate = copy.deepcopy(baseline)
         candidate["sessions"][0]["presentations"][0][
@@ -137,21 +138,64 @@ class ReconcileTest(unittest.TestCase):
         ] = "A presentation, updated"
         result = compare(baseline, candidate, snapshot(baseline, "S1P1"))
 
-        self.assertEqual(
-            ["S1P1: changed item has 1 note(s), 1 RSVP(s)"],
-            publication_blockers(result, set()),
-        )
-        self.assertEqual([], publication_blockers(result, {"S1P1"}))
+        self.assertEqual([], publication_blockers(result))
 
-    def test_possible_reuse_cannot_be_acknowledged_as_a_content_change(self) -> None:
+    def test_possible_reuse_only_blocks_when_it_has_user_content(self) -> None:
         baseline = program()
         candidate = copy.deepcopy(baseline)
         candidate["sessions"][0]["title"] = "Unrelated Closing Ceremony"
-        result = compare(baseline, candidate, snapshot(baseline))
+        without_content = compare(baseline, candidate, snapshot(baseline))
+        with_content = compare(baseline, candidate, snapshot(baseline, "S1"))
 
+        self.assertEqual([], publication_blockers(without_content))
         self.assertEqual(
             ["S1: possible positional ID reuse"],
-            publication_blockers(result, {"S1"}),
+            publication_blockers(with_content),
+        )
+
+    def test_exact_talk_title_keeps_its_id_when_the_source_code_changes(self) -> None:
+        baseline = program()
+        candidate = copy.deepcopy(baseline)
+        session = candidate["sessions"][0]
+        session["id"] = "S9"
+        session["title"] = "Renumbered session"
+        session["presentations"][0]["id"] = "OC23"
+        session["presentations"].append(
+            {"kind": "talk", "id": "S1P1", "title": "A new presentation"}
+        )
+
+        reconciled, summary = reconcile_identities(baseline, candidate)
+        result = reconciled["sessions"][0]
+
+        self.assertEqual("S1", result["id"])
+        self.assertEqual("S1P1", result["presentations"][0]["id"])
+        self.assertRegex(result["presentations"][1]["id"], r"^t-[a-f0-9]{12}$")
+        self.assertEqual(1, summary["matched_presentations"])
+        self.assertEqual(1, summary["fresh_presentations"])
+
+    def test_an_empty_placeholder_keeps_its_id_when_its_slot_is_filled(self) -> None:
+        baseline = program()
+        baseline["sessions"][0]["title"] = "Late Breaking Placeholder"
+        baseline["sessions"][0]["presentations"] = []
+        candidate = copy.deepcopy(baseline)
+        candidate["sessions"][0].update(id="S9", title="Supplied final session")
+
+        reconciled, _ = reconcile_identities(baseline, candidate)
+
+        self.assertEqual("S1", reconciled["sessions"][0]["id"])
+
+    def test_duplicate_titles_keep_matching_source_ids(self) -> None:
+        baseline = program()
+        baseline["sessions"][0]["presentations"].append(
+            {"kind": "talk", "id": "S1P2", "title": "A presentation"}
+        )
+        candidate = copy.deepcopy(baseline)
+
+        reconciled, _ = reconcile_identities(baseline, candidate)
+
+        self.assertEqual(
+            ["S1P1", "S1P2"],
+            [item["id"] for item in reconciled["sessions"][0]["presentations"]],
         )
 
 

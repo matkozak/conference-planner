@@ -47,23 +47,18 @@ needed; unresolved talk presenters also appear as actionable report findings.
 
 `ctad:publish` rebuilds and verifies everything, then fetches the current
 production catalog, immutable CTAD program, and a fresh CTAD notebook snapshot
-through Cloudflare Access. For an update, it reconciles positional ids and
-checks every changed or removed item for notes and RSVPs before invoking the
-generic R2 publisher. Finally, it reads production back and verifies the
-catalog hash, program object, and notebook version.
+through Cloudflare Access. For an update, it carries published app identities
+onto exact unique presentation matches, then reconciles sessions from those
+children or unambiguous schedule context. Genuinely new entries keep a
+non-conflicting source id or receive a deterministic app id. The reconciled
+candidate is validated again before the generic R2 publisher runs. Finally, the
+workflow reads production back and verifies the catalog hash, program object,
+and notebook version.
 
 The first publication has no existing CTAD identity to reconcile. Later
-publications fail when an id appears to have been reused, a referenced item was
-removed, or a changed item has user content that has not been acknowledged. A
-reviewed non-identity change can be acknowledged explicitly:
-
-```bash
-pnpm run ctad:publish -- --allow-content-change OC12
-```
-
-This acknowledgement cannot waive possible id reuse or removal of an item with
-user content. Resolve those identities or migrate the notebook data before
-publishing.
+publications report all additions, removals, and content changes, but block only
+when an item with notes or RSVPs cannot be matched safely. Ordinary upstream
+changes to a matched talk remain attached to the same notes and RSVPs.
 
 `CONFERENCE_APP_URL` may override the default production origin
 `https://conferences.kozak.ch`. R2 publication uses the same `R2_ACCOUNT_ID`,
@@ -278,13 +273,15 @@ CTAD omits the optional display-only `session_number` field for all sessions,
 including poster sessions. Breaks, lunches, walking tours, and the welcome
 ceremony default to the `Social` category.
 
-Session ids are `S<n>` in document order; poster theme sessions use explicit stable
-`PT-…` ids from `POSTER_THEME_IDS`, independent of display-window numbering. Talks keep
-their source labels (`OC12`), symposium presentations become `S<n>P<m>`, biotech
-showcases `BS<n>`, standalone keynotes use `KEYNOTE<n>`, standalone late-breaking
-symposia use `LBS<n>`, and posters keep `P<n>`.
-Manually inserted uncoded talks use `S<n>T<HHMMSS>`, scoped to their session and
-source start time; they are not assigned inferred `OC` numbers.
+The offline extraction candidate uses source-shaped ids: sessions are `S<n>` in
+document order, talks use labels such as `OC12`, symposium presentations use
+`S<n>P<m>`, and posters use `P<n>`. These are provisional because CTAD can
+renumber them. At publication, the current production program is the identity
+authority. Exact unique presentation titles retain their published app ids;
+sessions follow retained children, an unchanged schedule slot, or an exact
+unique title. A genuinely new source id is kept when it does not collide with
+history; otherwise a deterministic opaque app id is assigned. Only an
+unresolved item with notes or RSVPs blocks publication.
 
 People are keyed on normalised name plus organisation, and their ids are a hash
 of that key, so they stay stable no matter what order the sources are read in.
@@ -295,8 +292,6 @@ Name-plus-organisation matching is deliberately tentative: it splits a person
 who appears under two affiliations rather than merging two people who share a
 name.
 
-Because the program is preliminary, ids derived from position (`S<n>`) will
-move if CTAD inserts a session. Positional ids are intentional: the source
-provides no stronger identity, and a title hash would only pretend otherwise.
-`ctad:publish` treats the currently published program as the identity authority
-and performs the reconciliation described above.
+This deliberately avoids fuzzy matching as an authority. Speaker, time, and
+similar-title comparisons may help a human investigate a future ambiguity, but
+they do not silently move user content between talks.

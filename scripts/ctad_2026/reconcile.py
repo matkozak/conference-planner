@@ -1,13 +1,15 @@
-"""Review CTAD positional IDs before publishing a refreshed program.
+"""Reconcile CTAD extraction IDs before publishing a refreshed program.
 
-The CTAD PDFs provide stable labels for talks and posters, but not for sessions.
-This comparison treats the currently published program as the identity
-authority and highlights positional IDs that may now name different content.
+The CTAD PDFs may renumber talks as well as sessions. The currently published
+program is the identity authority: exact unique talk titles retain their app
+ids, sessions follow their retained children or unambiguous schedule context,
+and genuinely new colliding source ids receive deterministic app ids.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import re
@@ -46,6 +48,165 @@ def publication_hash(program: dict[str, Any]) -> str:
 
 def normalize_title(value: str) -> str:
     return " ".join(re.findall(r"[a-z0-9]+", value.casefold()))
+
+
+def _fresh_id(
+    item: dict[str, Any], reserved: set[str], used: set[str]
+) -> str:
+    """Allocate a deterministic app id for a new item whose source id collides."""
+    prefix = {"session": "s", "poster-session": "s", "talk": "t", "poster": "p"}[
+        item["kind"]
+    ]
+    seed = "\0".join(
+        [
+            item["kind"],
+            normalize_title(item["title"]),
+            item.get("date", ""),
+            item.get("starts_at", ""),
+            item["id"],
+        ]
+    )
+    base = f"{prefix}-{hashlib.sha256(seed.encode()).hexdigest()[:12]}"
+    candidate = base
+    suffix = 2
+    while candidate in reserved or candidate in used:
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    return candidate
+
+
+def _unique_title_matches(
+    baseline_items: list[dict[str, Any]], candidate_items: list[dict[str, Any]]
+) -> dict[int, str]:
+    """Map candidate object identities to old ids for unique exact titles."""
+    old_by_title: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    new_by_title: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for item in baseline_items:
+        old_by_title[(item["kind"], normalize_title(item["title"]))].append(item)
+    for item in candidate_items:
+        new_by_title[(item["kind"], normalize_title(item["title"]))].append(item)
+    matches: dict[int, str] = {}
+    for key in old_by_title.keys() & new_by_title.keys():
+        old = old_by_title[key]
+        new = new_by_title[key]
+        if len(old) == len(new) == 1:
+            matches[id(new[0])] = old[0]["id"]
+    return matches
+
+
+def reconcile_identities(
+    baseline: dict[str, Any], candidate: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, int]]:
+    """Carry published identities onto an extracted refresh when matches are exact."""
+    reconciled = copy.deepcopy(candidate)
+    old_records = item_records(baseline)
+    reserved = set(old_records)
+    used: set[str] = set()
+
+    old_presentations = [
+        item for item in old_records.values() if item["kind"] in {"talk", "poster"}
+    ]
+    new_presentations = [
+        item
+        for session in reconciled["sessions"]
+        for item in session["presentations"]
+    ]
+    presentation_matches = _unique_title_matches(
+        old_presentations, new_presentations
+    )
+    for item in new_presentations:
+        old = old_records.get(item["id"])
+        if (
+            old is not None
+            and old["kind"] == item["kind"]
+            and normalize_title(old["title"]) == normalize_title(item["title"])
+        ):
+            presentation_matches[id(item)] = old["id"]
+    matched_presentations = 0
+    fresh_presentations = 0
+    for item in new_presentations:
+        old_id = presentation_matches.get(id(item))
+        if old_id is not None and old_id not in used:
+            item["id"] = old_id
+            matched_presentations += 1
+        elif item["id"] in reserved or item["id"] in used:
+            item["id"] = _fresh_id(item, reserved, used)
+            fresh_presentations += 1
+        used.add(item["id"])
+
+    old_sessions = list(baseline["sessions"])
+    new_sessions = list(reconciled["sessions"])
+    old_parent_by_child = {
+        item["id"]: session["id"]
+        for session in old_sessions
+        for item in session["presentations"]
+    }
+
+    child_claims: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    child_target: dict[int, str] = {}
+    for session in new_sessions:
+        parents = {
+            old_parent_by_child[item["id"]]
+            for item in session["presentations"]
+            if item["id"] in old_parent_by_child
+        }
+        if len(parents) == 1:
+            target = parents.pop()
+            child_target[id(session)] = target
+            child_claims[target].append(session)
+
+    session_matches: dict[int, str] = {
+        object_id: target
+        for object_id, target in child_target.items()
+        if len(child_claims[target]) == 1
+    }
+    claimed_old_sessions = set(session_matches.values())
+
+    def add_unique_matches(key: Any) -> None:
+        old_by_key: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+        new_by_key: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+        for session in old_sessions:
+            if session["id"] not in claimed_old_sessions:
+                old_by_key[key(session)].append(session)
+        for session in new_sessions:
+            if id(session) not in session_matches:
+                new_by_key[key(session)].append(session)
+        for value in old_by_key.keys() & new_by_key.keys():
+            old = old_by_key[value]
+            new = new_by_key[value]
+            if len(old) == len(new) == 1:
+                session_matches[id(new[0])] = old[0]["id"]
+                claimed_old_sessions.add(old[0]["id"])
+
+    add_unique_matches(
+        lambda session: (
+            session["kind"],
+            session["date"],
+            session.get("starts_at", ""),
+        )
+    )
+    add_unique_matches(
+        lambda session: (session["kind"], normalize_title(session["title"]))
+    )
+
+    matched_sessions = 0
+    fresh_sessions = 0
+    for session in new_sessions:
+        old_id = session_matches.get(id(session))
+        if old_id is not None and old_id not in used:
+            session["id"] = old_id
+            matched_sessions += 1
+        elif session["id"] in reserved or session["id"] in used:
+            session["id"] = _fresh_id(session, reserved, used)
+            fresh_sessions += 1
+        used.add(session["id"])
+
+    return reconciled, {
+        "matched_presentations": matched_presentations,
+        "fresh_presentations": fresh_presentations,
+        "matched_sessions": matched_sessions,
+        "fresh_sessions": fresh_sessions,
+    }
 
 
 def item_records(program: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -281,25 +442,16 @@ def render(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def publication_blockers(
-    report: dict[str, Any], allowed_content_changes: set[str]
-) -> list[str]:
-    """Return identity or user-content conflicts that make publication unsafe."""
+def publication_blockers(report: dict[str, Any]) -> list[str]:
+    """Block only unresolved identity changes that could misplace user content."""
     blockers = [
         f"{row['id']}: possible positional ID reuse"
         for row in report["possible_id_reuse"]
+        if sum(row["references"].values()) > 0
     ]
-    reused_ids = {row["id"] for row in report["possible_id_reuse"]}
     for row in report["removed"]:
         if sum(row["references"].values()) > 0:
             blockers.append(f"{row['id']}: removed item has {_references(row)}")
-    for row in report["modified"]:
-        if (
-            row["id"] not in reused_ids
-            and row["id"] not in allowed_content_changes
-            and sum(row["references"].values()) > 0
-        ):
-            blockers.append(f"{row['id']}: changed item has {_references(row)}")
     return blockers
 
 
@@ -316,30 +468,43 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="fail on possible ID reuse or unreviewed user-content impact",
+        help="fail when referenced content cannot be reconciled safely",
     )
     parser.add_argument(
-        "--allow-content-change",
-        action="append",
-        default=[],
-        metavar="ITEM_ID",
-        help="acknowledge a non-identity change to an item with user content",
+        "--output",
+        type=Path,
+        help="write the identity-reconciled candidate when review succeeds",
     )
     arguments = parser.parse_args(argv)
 
     baseline = load_json(arguments.baseline)
-    candidate = load_json(arguments.candidate)
+    extracted_candidate = load_json(arguments.candidate)
     snapshot = load_json(arguments.notebook_snapshot)
+    candidate, identity_summary = reconcile_identities(
+        baseline, extracted_candidate
+    )
+    print(
+        "Identity reconciliation: "
+        f"{identity_summary['matched_presentations']} presentations and "
+        f"{identity_summary['matched_sessions']} sessions retained published ids; "
+        f"{identity_summary['fresh_presentations']} new presentations and "
+        f"{identity_summary['fresh_sessions']} new sessions received app ids."
+    )
     result = compare(
         baseline, candidate, snapshot, str(arguments.notebook_snapshot)
     )
     print(render(result), end="")
-    blockers = publication_blockers(result, set(arguments.allow_content_change))
+    blockers = publication_blockers(result)
     if arguments.strict and blockers:
         print("Publication blocked:", file=sys.stderr)
         for blocker in blockers:
             print(f"- {blocker}", file=sys.stderr)
         return 1
+    if arguments.output:
+        arguments.output.write_text(
+            json.dumps(candidate, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     return 0
 
 

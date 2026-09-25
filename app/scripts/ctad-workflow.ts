@@ -87,7 +87,7 @@ function build(): void {
   run("pnpm", ["run", "test"], APP_ROOT);
 }
 
-function reconcileProduction(allowedContentChanges: string[]): void {
+function reconcileProduction(): void {
   console.log("\n== Production identity review ==");
   const catalog = parseConferenceCatalog(accessJson("/api/catalog"));
   const current = conferenceById(catalog, "ctad-2026");
@@ -116,19 +116,24 @@ function reconcileProduction(allowedContentChanges: string[]): void {
       "--notebook-snapshot",
       snapshotPath,
       "--strict",
+      "--output",
+      CANDIDATE,
     ];
-    for (const itemId of allowedContentChanges) {
-      args.push("--allow-content-change", itemId);
-    }
     run("python3", args);
+    console.log("\n== Reconciled program validation ==");
+    run(
+      "node",
+      ["scripts/check-program.ts", ".programs/ctad-2026.json"],
+      APP_ROOT,
+    );
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }
 }
 
-function publish(allowedContentChanges: string[]): void {
+function publish(): void {
   build();
-  reconcileProduction(allowedContentChanges);
+  reconcileProduction();
 
   console.log("\n== Publish CTAD candidate ==");
   run(
@@ -176,20 +181,6 @@ function publish(allowedContentChanges: string[]): void {
   console.log(`verified ${candidate.conference.id}@${expectedHash}`);
 }
 
-function contentChangeAllowances(args: string[]): string[] {
-  const allowed: string[] = [];
-  for (let index = 0; index < args.length; index += 1) {
-    if (args[index] !== "--allow-content-change") {
-      throw new Error(`unknown argument: ${args[index]}`);
-    }
-    const itemId = args[index + 1];
-    if (!itemId) throw new Error("--allow-content-change requires an item id");
-    allowed.push(itemId);
-    index += 1;
-  }
-  return allowed;
-}
-
 const action = process.argv[2];
 if (action === "build") {
   if (process.argv.length > 3) {
@@ -197,7 +188,10 @@ if (action === "build") {
   }
   build();
 } else if (action === "publish") {
-  publish(contentChangeAllowances(process.argv.slice(3)));
+  if (process.argv.length > 3) {
+    throw new Error("ctad:publish does not accept arguments");
+  }
+  publish();
 } else {
   throw new Error("usage: ctad-workflow.ts <build|publish>");
 }
