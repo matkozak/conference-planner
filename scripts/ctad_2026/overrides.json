@@ -5,25 +5,39 @@
     "byte-identical output and a changed source fails loudly as unmatched.",
     "Run `python3 -m scripts.ctad_2026.build --report` to list what is missing."
   ],
-  "sessions": [],
-  "insertions": [
+  "sessions": [
     {
       "match": {
-        "title": "Session on Study Design and Phase 1/Phase 2a Studies",
-        "date": "2026-11-18",
-        "starts": "09:55:00"
+        "title": "Additional biomarker and clinical findings from the Phase 2 CELIA study of diranersen in early Alzheimer’s disease",
+        "date": "2026-11-17",
+        "starts": "16:45:00"
       },
+      "presentation": "LATEBREAKINGSYMPOSIUM1",
       "expect": {
-        "after": "OC17",
-        "page": 13,
-        "top": 735,
-        "starts": "10:05:00",
-        "text": "—"
+        "authors": [
+          "Adrian COLES",
+          "Jessica COLLINS",
+          "Gioacchino CURIALE",
+          "Amanda EDWARDS",
+          "Ellen HUANG",
+          "Melanie SHULMAN"
+        ],
+        "presenters": []
       },
+      "presenters": [],
       "allow_missing_presenter": true,
-      "reason": "September 1 PDF, page 13: the separate 10:05 entry contains only an em dash, with no code or presenter. Preserve it as printed."
+      "reason": "September 23 PDF, page 12: the final program supplies the title and author list but does not underline a presenter."
     }
   ],
+  "item_times": [
+    {
+      "presentation": "OC27",
+      "expect": "23:55:00",
+      "starts": "11:55:00",
+      "reason": "September 23 PDF, page 14: OC27 is printed as 11:55 p.m. between the 11:40 a.m. OC26 and 12:10 p.m. OC28 talks."
+    }
+  ],
+  "insertions": [],
   "glyph_repairs": [
     {
       "pattern": "APOE\\s*\\?4",
@@ -80,6 +94,16 @@
         "name": "Marwan Sabbagh",
         "org": "Barrow Neurological Institute, Phoenix, AZ (United States)"
       }
+    ],
+    "Chairs: Olga Brawman-Mintzer, Medical University of South Carolina and Ralph H. Johnson, VA Health Care System - Charleston, SC (United States)": [
+      {
+        "name": "Olga Brawman-Mintzer",
+        "org": "Medical University of South Carolina"
+      },
+      {
+        "name": "Ralph H. Johnson",
+        "org": "VA Health Care System, Charleston, SC (United States)"
+      }
     ]
   },
   "names": {
@@ -100,62 +124,6 @@
     },
     "P422": {
       "presenter": "Annunziata Di Domenico",
-      "authors": {
-        "Nicholas ASHTON 10": [
-          {
-            "name": "Nicholas ASHTON",
-            "affiliation_ids": [
-              10,
-              11
-            ]
-          }
-        ],
-        "11": [],
-        "Marisa DENKINGER 11": [
-          {
-            "name": "Marisa DENKINGER",
-            "affiliation_ids": [
-              11
-            ]
-          }
-        ],
-        "Christopher ROWE 12": [
-          {
-            "name": "Christopher ROWE",
-            "affiliation_ids": [
-              12,
-              13
-            ]
-          }
-        ],
-        "13": [],
-        "Ming LU 14": [
-          {
-            "name": "Ming LU",
-            "affiliation_ids": [
-              14
-            ]
-          }
-        ],
-        "Sameera WIJAYAWARDANA 15": [
-          {
-            "name": "Sameera WIJAYAWARDANA",
-            "affiliation_ids": [
-              15
-            ]
-          }
-        ],
-        "Sebastian PALMQVIST 6": [
-          {
-            "name": "Sebastian PALMQVIST",
-            "affiliation_ids": [
-              6,
-              16
-            ]
-          }
-        ],
-        "16": []
-      },
       "affiliations": {
         "7": {
           "expect": "Barcelona?eta Brain Research Center BBRC, Pasqual Maragall Foundation, Barcelona, Spain",

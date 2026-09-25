@@ -156,6 +156,9 @@ standalone keynote also gets one talk with the session's title and time bounds,
 the keynote author's attribution and affiliation, and no introducer among its
 presenters. The welcome/award ceremony remains a separate session. Session and
 talk notes/RSVPs are currently separate, as for any other session with talks.
+An authored standalone late-breaking symposium is represented the same way. If
+the source does not underline a presenter, a guarded session override may set
+`allow_missing_presenter: true` instead of guessing one.
 
 Two source documents, one notion of a speaker: the program underlines its
 presenters, the posters document names one on a `Presenter:` line, and both end
@@ -202,8 +205,11 @@ byte-identically, and a changed source shows up as an unused override in
 - `sessions` — guarded presenter corrections, applied after standalone keynotes
   become presentations. Match the exact collapsed source session title, date,
   and start time, then the source presentation label (`OC12`, `Presentation2`,
-  `BIOTECHSHOWCASE3`, or generated `KEYNOTE1`). Names are exact parsed author
-  strings, before name normalization. For example, using synthetic data:
+  `BIOTECHSHOWCASE3`, or generated `KEYNOTE1` / `LATEBREAKINGSYMPOSIUM1`). Names
+  are exact parsed author strings, before name normalization. A correction must
+  provide presenters; an explicitly presenter-less source instead uses an empty
+  `presenters` list plus `allow_missing_presenter: true`. For example, using
+  synthetic data:
 
 ```json
 {
@@ -227,7 +233,13 @@ must match the current ordered author list and resolved presenter list (includin
 the sole-author fallback). Each selected presenter must match exactly one author.
 Missing or ambiguous targets, duplicate corrections, and changed expectations
 fail the build, including report mode. Keep a reason and PDF page for review.
-The separate top-level `insertions` array handles reviewed, uncoded source
+
+The separate top-level `item_times` array holds guarded corrections for a source
+talk time printed incorrectly. Match the globally unique source presentation
+label and its exact parsed time, then record the corrected time and PDF-page
+reason.
+
+The top-level `insertions` array handles reviewed, uncoded source
 entries. The parser stops extending a talk's title once authors or affiliations
 begin; subsequent unrecognized bold text is retained with its page, vertical
 position, nearby talk time, and preceding talk code. Unconsumed text blocks the
@@ -269,7 +281,8 @@ ceremony default to the `Social` category.
 Session ids are `S<n>` in document order; poster theme sessions use explicit stable
 `PT-…` ids from `POSTER_THEME_IDS`, independent of display-window numbering. Talks keep
 their source labels (`OC12`), symposium presentations become `S<n>P<m>`, biotech
-showcases `BS<n>`, standalone keynotes use `KEYNOTE<n>`, and posters keep `P<n>`.
+showcases `BS<n>`, standalone keynotes use `KEYNOTE<n>`, standalone late-breaking
+symposia use `LBS<n>`, and posters keep `P<n>`.
 Manually inserted uncoded talks use `S<n>T<HHMMSS>`, scoped to their session and
 source start time; they are not assigned inferred `OC` numbers.
 

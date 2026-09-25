@@ -36,6 +36,7 @@ SCHEMA_VERSION = 1
 INTRODUCTION_PREFIX = re.compile(r"^Introduction\s*:\s*", re.IGNORECASE)
 BIOTECH_LABEL = re.compile(r"^BIOTECHSHOWCASE(\d+)$")
 PRESENTATION_LABEL = re.compile(r"^Presentation(\d+)$")
+LATE_BREAKING_SYMPOSIUM_LABEL = re.compile(r"^LATEBREAKINGSYMPOSIUM(\d+)$")
 #: A question mark that is not sentence punctuation is a glyph the PDF lost.
 UNMAPPED_GLYPH = re.compile(r"\?(?!$|\s+[A-Z(])")
 DIGIT_IN_NAME = re.compile(r"\d")
@@ -44,6 +45,7 @@ STANDALONE_EVENT = re.compile(
     r"^(?:coffee break\b|lunch\b|poster walking tour\b|welcome ceremony\b)",
     re.IGNORECASE,
 )
+PROGRAM_END = re.compile(r"^end of the conference(?: day)?$", re.IGNORECASE)
 
 
 @dataclass
@@ -55,6 +57,7 @@ class Overrides:
     names: dict[str, str] = field(default_factory=dict)
     orgs: dict[str, str] = field(default_factory=dict)
     sessions: list[dict[str, Any]] = field(default_factory=list)
+    item_times: list[dict[str, Any]] = field(default_factory=list)
     insertions: list[dict[str, Any]] = field(default_factory=list)
     posters: dict[str, dict[str, Any]] = field(default_factory=dict)
     unconsumed: list[str] = field(default_factory=list)
@@ -81,6 +84,7 @@ class Overrides:
             },
             orgs=raw.get("orgs", {}),
             sessions=raw.get("sessions", []),
+            item_times=raw.get("item_times", []),
             insertions=raw.get("insertions", []),
             posters=raw.get("posters", {}),
         )
@@ -192,6 +196,8 @@ def item_id(session_id: str, label: str) -> str:
         return f"BS{match.group(1)}"
     if match := PRESENTATION_LABEL.match(label):
         return f"{session_id}P{match.group(1)}"
+    if match := LATE_BREAKING_SYMPOSIUM_LABEL.match(label):
+        return f"LBS{match.group(1)}"
     return label
 
 
@@ -271,8 +277,12 @@ def build_talk(
 
 
 def prepare_sessions(sources: list[Session], overrides: Overrides) -> list[Session]:
-    """Expand standalone keynotes, then apply guarded presenter corrections."""
-    sessions = deepcopy(sources)
+    """Expand standalone scientific entries, then apply guarded corrections."""
+    sessions = [
+        session
+        for session in deepcopy(sources)
+        if not PROGRAM_END.fullmatch(collapse(session.title))
+    ]
     for session in sessions:
         if session.category == "Keynote" and not session.items:
             if not session.label or not re.fullmatch(r"KEYNOTE\s+\d+", session.label):
@@ -283,11 +293,34 @@ def prepare_sessions(sources: list[Session], overrides: Overrides) -> list[Sessi
                 authors=[a for a in session.authors if not INTRODUCTION_PREFIX.match(a.name)],
                 affiliations=session.affiliations,
             )]
+        elif (
+            session.category == "Late Breaking Symposium"
+            and not session.items
+            and session.authors
+        ):
+            if not session.label or not re.fullmatch(
+                r"LATE BREAKING SYMPOSIUM\s+\d+", session.label
+            ):
+                raise ValueError(
+                    f"late-breaking symposium needs a numbered source label: {session.title}"
+                )
+            session.items = [Item(
+                label=re.sub(r"\s+", "", session.label),
+                title=session_title(session), starts=session.starts, ends=session.ends,
+                authors=session.authors,
+                affiliations=session.affiliations,
+            )]
+
+    apply_item_time_overrides(sessions, overrides)
 
     corrected: set[tuple[str, str, str, str]] = set()
     for entry in overrides.sessions:
-        if set(entry) != {"match", "presentation", "expect", "presenters", "reason"}:
-            raise ValueError("session override needs match, presentation, expect, presenters, reason")
+        required = {"match", "presentation", "expect", "presenters", "reason"}
+        if set(entry) not in (required, required | {"allow_missing_presenter"}):
+            raise ValueError(
+                "session override needs match, presentation, expect, presenters, reason, "
+                "and optional allow_missing_presenter"
+            )
         match, expected = entry["match"], entry["expect"]
         if not isinstance(match, dict) or set(match) != {"title", "date", "starts"}:
             raise ValueError("session override match needs exact source title, date, starts")
@@ -300,14 +333,21 @@ def prepare_sessions(sources: list[Session], overrides: Overrides) -> list[Sessi
         strings.extend(name for names in lists for name in names)
         if any(not isinstance(v, str) or not v.strip() for v in strings):
             raise ValueError("session override values must be nonempty strings")
-        if not entry["presenters"] or len(set(entry["presenters"])) != len(entry["presenters"]):
+        allow_missing = entry.get("allow_missing_presenter", False)
+        if not isinstance(allow_missing, bool) or bool(entry["presenters"]) == allow_missing:
+            raise ValueError(
+                "session override needs either distinct presenters or "
+                "allow_missing_presenter"
+            )
+        if len(set(entry["presenters"])) != len(entry["presenters"]):
             raise ValueError("session override needs distinct presenter names")
         matches = [s for s in sessions if
                    (collapse(s.title), s.date, s.starts) ==
                    (match["title"], match["date"], match["starts"])]
         if len(matches) != 1:
             raise ValueError(f"session override matched {len(matches)} sessions: {match}")
-        items = [i for i in matches[0].items if i.label == entry["presentation"]]
+        matched_session = matches[0]
+        items = [i for i in matched_session.items if i.label == entry["presentation"]]
         if len(items) != 1:
             raise ValueError(f"session override must match one presentation: {entry['presentation']}")
         item = items[0]
@@ -325,8 +365,34 @@ def prepare_sessions(sources: list[Session], overrides: Overrides) -> list[Sessi
                 raise ValueError(f"override presenter must match exactly one author: {name}")
         for author in item.authors:
             author.presenting = author.name in entry["presenters"]
+        if allow_missing:
+            session_id = f"S{sessions.index(matched_session) + 1}"
+            overrides.allowed_missing_presenters.add(item_id(session_id, item.label))
     apply_insertions(sessions, overrides)
     return sessions
+
+
+def apply_item_time_overrides(sessions: list[Session], overrides: Overrides) -> None:
+    """Apply guarded corrections for item times printed incorrectly in the PDF."""
+    for entry in overrides.item_times:
+        if set(entry) != {"presentation", "expect", "starts", "reason"}:
+            raise ValueError(
+                "item time override needs presentation, expect, starts, reason"
+            )
+        strings = [entry["presentation"], entry["expect"], entry["starts"], entry["reason"]]
+        if any(not isinstance(value, str) or not value.strip() for value in strings):
+            raise ValueError("item time override values must be nonempty strings")
+        items = [
+            item
+            for session in sessions
+            for item in session.items
+            if item.label == entry["presentation"]
+        ]
+        if len(items) != 1 or items[0].starts != entry["expect"]:
+            raise ValueError(
+                f"item time override source changed: {entry['presentation']}"
+            )
+        items[0].starts = entry["starts"]
 
 
 def apply_insertions(sessions: list[Session], overrides: Overrides) -> None:

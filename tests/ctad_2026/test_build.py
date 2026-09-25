@@ -147,6 +147,7 @@ class ItemIdTest(unittest.TestCase):
         self.assertEqual(item_id("S4", "OC12"), "OC12")
         self.assertEqual(item_id("S5", "Presentation2"), "S5P2")
         self.assertEqual(item_id("S14", "BIOTECHSHOWCASE3"), "BS3")
+        self.assertEqual(item_id("S20", "LATEBREAKINGSYMPOSIUM1"), "LBS1")
 
 
 class ProgramSessionTest(unittest.TestCase):
@@ -175,6 +176,19 @@ class ProgramSessionTest(unittest.TestCase):
         )
         self.assertEqual([session["id"] for session in built], ["S1", "S2"])
         self.assertTrue(all("session_number" not in session for session in built))
+
+    def test_terminal_program_markers_are_not_sessions(self) -> None:
+        source = [
+            self.session(title="A symposium", category="Symposium"),
+            self.session(starts="17:20:00", ends=None, title="End of the conference day"),
+            self.session(starts="09:00:00", title="A keynote", category="Social"),
+            self.session(starts="16:10:00", ends=None, title="End of the conference"),
+        ]
+
+        built = build_program_sessions(source, People(), overrides())
+
+        self.assertEqual([session["title"] for session in built], ["A symposium", "A keynote"])
+        self.assertEqual([session["id"] for session in built], ["S1", "S2"])
 
     def test_a_numbered_source_label_does_not_emit_session_number(self) -> None:
         source = [
@@ -581,6 +595,44 @@ class KeynoteAndSessionOverrideTest(unittest.TestCase):
         source.items = [Item("OC1", "Existing talk", authors=[Author("Ada")])]
         self.assertEqual(len(prepare_sessions([source], overrides())[0].items), 1)
 
+    def test_standalone_late_breaker_can_explicitly_have_no_presenter(self) -> None:
+        source = Session(
+            date="2026-11-17",
+            starts="16:45:00",
+            ends="17:25:00",
+            category="Late Breaking Symposium",
+            label="LATE BREAKING SYMPOSIUM 1",
+            title="A late-breaking result",
+            authors=[Author("Ada Lovelace"), Author("Alan Turing")],
+            affiliations={1: "Analytical Engine"},
+        )
+        entry = {
+            "match": {
+                "title": "A late-breaking result",
+                "date": "2026-11-17",
+                "starts": "16:45:00",
+            },
+            "presentation": "LATEBREAKINGSYMPOSIUM1",
+            "expect": {
+                "authors": ["Ada Lovelace", "Alan Turing"],
+                "presenters": [],
+            },
+            "presenters": [],
+            "allow_missing_presenter": True,
+            "reason": "Synthetic PDF page 1 has no underlined presenter.",
+        }
+        state = overrides(sessions=[entry])
+        people = People()
+
+        sessions = build_program_sessions([source], people, state)
+        talk = sessions[0]["presentations"][0]
+
+        self.assertEqual(talk["id"], "LBS1")
+        self.assertNotIn("speaker_ids", talk)
+        self.assertIn("Ada Lovelace", talk["description_html"])
+        program = {"sessions": sessions, "people": people.as_record()}
+        self.assertEqual(report(program, state), [])
+
     def test_override_corrects_presenter_without_reordering_authors(self) -> None:
         source = self.source()
         source.authors.insert(1, Author("Another Author"))
@@ -612,6 +664,50 @@ class KeynoteAndSessionOverrideTest(unittest.TestCase):
                     entry["typo"] = True
                 with self.assertRaises(ValueError):
                     prepare_sessions(sources, overrides(sessions=entries))
+
+
+class ItemTimeOverrideTest(unittest.TestCase):
+    def source(self) -> Session:
+        return Session(
+            title="Oral communications",
+            date="2026-11-18",
+            starts="11:40:00",
+            ends="12:25:00",
+            items=[Item("OC27", "A talk", starts="23:55:00")],
+        )
+
+    def correction(self) -> dict:
+        return {
+            "presentation": "OC27",
+            "expect": "23:55:00",
+            "starts": "11:55:00",
+            "reason": "Synthetic PDF page 1 prints the wrong meridiem.",
+        }
+
+    def test_a_guarded_override_corrects_the_printed_time(self) -> None:
+        source = self.source()
+
+        result = prepare_sessions(
+            [source], overrides(item_times=[self.correction()])
+        )
+
+        self.assertEqual(result[0].items[0].starts, "11:55:00")
+        self.assertEqual(source.items[0].starts, "23:55:00")
+
+    def test_a_changed_source_or_unknown_field_fails(self) -> None:
+        for case in ["time", "presentation", "field"]:
+            with self.subTest(case=case):
+                entry = self.correction()
+                if case == "time":
+                    entry["expect"] = "11:55:00"
+                elif case == "presentation":
+                    entry["presentation"] = "OC28"
+                else:
+                    entry["typo"] = True
+                with self.assertRaises(ValueError):
+                    prepare_sessions(
+                        [self.source()], overrides(item_times=[entry])
+                    )
 
 
 class InsertionOverrideTest(unittest.TestCase):

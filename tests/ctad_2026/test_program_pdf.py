@@ -29,6 +29,24 @@ class ClockTest(unittest.TestCase):
 
 
 class SessionStructureTest(unittest.TestCase):
+    def test_late_breaking_code_opens_an_item(self) -> None:
+        parsed = parse(
+            [
+                DAY
+                + [
+                    Text(top=181, left=68, font="gutter", text="5:30 p.m."),
+                    Text(top=199, left=68, font="gutter", text="6:15 p.m."),
+                    Text(top=189, left=194, font="oral", text="ORAL COMMUNICATIONS"),
+                    Text(top=230, left=68, font="gutter-item", text="5:45 p.m."),
+                    Text(top=230, left=194, font="item-label", text="LB01 "),
+                    Text(top=230, left=240, font="item-title", text="A late breaker"),
+                ]
+            ]
+        )
+
+        self.assertEqual(parsed[0].items[0].label, "LB01")
+        self.assertEqual(parsed[0].items[0].title, "A late breaker")
+
     def test_text_after_attribution_is_reported_without_extending_the_title(self) -> None:
         parsed = parse([DAY + [
             Text(top=181, left=68, font="gutter", text="9:00 a.m."),
@@ -148,6 +166,30 @@ class SessionStructureTest(unittest.TestCase):
 
 
 class AuthorBindingTest(unittest.TestCase):
+    def test_markers_embedded_in_a_person_run_are_removed_from_names(self) -> None:
+        parsed = parse(
+            [
+                DAY
+                + [
+                    Text(top=181, left=68, font="gutter", text="2:15 p.m."),
+                    Text(top=189, left=194, font="oral", text="ORAL COMMUNICATIONS"),
+                    Text(top=230, left=74, font="gutter-item", text="2:15 p.m."),
+                    Text(top=231, left=194, font="item-label", text="OC1 "),
+                    Text(top=229, left=223, font="item-title", text="A talk"),
+                    Text(
+                        top=260,
+                        left=194,
+                        font="person",
+                        text="Ada Lovelace1, Alan Turing²",
+                    ),
+                ]
+            ]
+        )
+
+        authors = parsed[0].items[0].authors
+        self.assertEqual([author.name for author in authors], ["Ada Lovelace", "Alan Turing"])
+        self.assertEqual([author.affiliation_ids for author in authors], [[1], [2]])
+
     def test_ahead_study_superscript_is_not_an_affiliation_marker(self) -> None:
         lines = lines_from_runs(
             runs_from_xml(
@@ -376,7 +418,12 @@ class ProseTest(unittest.TestCase):
                         font="chair",
                         text="Chair: Ada Lovelace, Analytical",
                     ),
-                    Text(top=278, left=194, font="chair", text="Engine, London (UK)"),
+                    Text(
+                        top=278,
+                        left=194,
+                        font="inline-affiliation",
+                        text="Engine, London (UK)",
+                    ),
                     Text(
                         top=340, left=194, font="prose", text="An unrelated paragraph."
                     ),

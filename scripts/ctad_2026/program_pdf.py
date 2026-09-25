@@ -6,7 +6,8 @@ Layout contract, all of it verifiable from the extracted font metadata:
 * a session begins at each gutter time pair, which makes page breaks irrelevant;
 * display-font headings carry the session category in their colour, and the
   session's own title in black;
-* bold runs open an item (``OC12``, ``Presentation 2``, ``BIOTECH SHOWCASE 3``);
+* bold runs open an item (``OC12``, ``LB01``, ``Presentation 2``,
+  ``BIOTECH SHOWCASE 3``);
 * author names are 14pt, their affiliation markers 8pt, and the affiliation
   block below is grey italic, so author-to-affiliation binding is read off the
   layout rather than guessed.
@@ -32,8 +33,12 @@ PARAGRAPH_GAP = 24
 
 TIME = re.compile(r"^(\d{1,2}):(\d{2})\s*([ap])\.m\.?$")
 MONTH_DAY = re.compile(r"^([A-Z][a-z]+)\s+(\d{1,2})$")
-ITEM_LABEL = re.compile(r"^(OC\s*\d+|Presentation\s*\d+|BIOTECH SHOWCASE\s*\d+)\s*$")
+ITEM_LABEL = re.compile(
+    r"^(OC\s*\d+|LB\s*\d+|Presentation\s*\d+|BIOTECH SHOWCASE\s*\d+)\s*$"
+)
 CHAIR_PREFIX = re.compile(r"^(?:Co-)?Chairs?\s*:\s*", re.IGNORECASE)
+INLINE_MARKER = re.compile(r"([0-9⁰¹²³⁴⁵⁶⁷⁸⁹]+)$")
+SUPERSCRIPT_DIGITS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
 
 MONTHS = [
     "January",
@@ -227,6 +232,17 @@ def group_blocks(body: list[Line]) -> list[tuple[str, list[Line]]]:
             and line.top - previous.top <= PARAGRAPH_GAP
         ):
             blocks[-1][1].append(line)
+        elif (
+            blocks
+            and blocks[-1][0] == "prose"
+            and CHAIR_PREFIX.match(blocks[-1][1][0].text)
+            and blocks[-1][1][-1].page == line.page
+            and line.top - blocks[-1][1][-1].top <= PARAGRAPH_GAP
+            and all(role_of(run) == "inline-affiliation" for run in line.runs)
+        ):
+            # A wrapped chair organisation can switch to the smaller italic
+            # face on its continuation line without becoming an author block.
+            blocks[-1][1].append(line)
         else:
             blocks.append((role, [line]))
     return blocks
@@ -291,10 +307,17 @@ def parse_authors(lines: list[Line]) -> list[Author]:
                 continue
             for position, part in enumerate(run.text.split(",")):
                 part = part.strip()
+                marker = INLINE_MARKER.search(part)
+                affiliation_ids: list[int] = []
+                if marker:
+                    digits = marker.group(1).translate(SUPERSCRIPT_DIGITS)
+                    affiliation_ids = [int(digits)]
+                    part = part[: marker.start()].rstrip()
                 if position == 0:
                     if current is None:
-                        current = Author(name=part)
-                        authors.append(current)
+                        if part:
+                            current = Author(name=part)
+                            authors.append(current)
                     elif part:
                         current.name = f"{current.name} {part}".strip()
                 elif part:
@@ -302,6 +325,8 @@ def parse_authors(lines: list[Line]) -> list[Author]:
                     authors.append(current)
                 elif run.text.strip() == ",":
                     current = None
+                if current is not None:
+                    current.affiliation_ids.extend(affiliation_ids)
             # The rule marks the author this run names, which is the one still
             # open once its comma-separated parts are consumed.
             if current is not None and run.underlined:
