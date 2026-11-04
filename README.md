@@ -1,88 +1,104 @@
 # Conference planner
 
 This repository contains a small private web app for planning conference
-attendance. Team members can browse a program, search sessions and
-presentations, RSVP, share notes, and view personal or team schedules.
+attendance and the publication boundary that supplies its data. Team members
+can browse programs, search sessions and presentations, RSVP, share notes, and
+view personal or team schedules.
 
-The app currently serves AAIC 2026 and is designed to accept other conferences
-without teaching the frontend about each source format. CTAD 2026 is next.
-
-## How it fits together
-
-Conference programs are built outside the running app:
+Conference-specific acquisition and extraction live in separate producer
+projects. This repository accepts only a provider-independent,
+schema-conformant `ConferenceProgram` JSON document:
 
 ```text
-local source or scrape
-  -> source-specific extraction
-  -> validated ConferenceProgram JSON
-  -> private R2 storage
+external producer
+  -> ConferenceProgram JSON
+  -> contract validation
+  -> production identity and notebook review
+  -> immutable R2 object + catalog promotion
   -> conference app
 ```
 
-Real conference source material and extraction work live in the ignored local
-`data/` directory. Validated publication candidates are written to the ignored
-`app/.programs/` directory. Small synthetic fixtures remain in Git for tests.
-
-The deployed app is one Cloudflare Worker:
-
-- Svelte provides the browser interface.
-- Hono routes the API.
-- Private R2 stores immutable conference programs and the conference catalog.
-- One SQLite-backed Durable Object per conference stores notes and RSVPs.
-- Cloudflare Access protects production and supplies the user's identity.
-
-Programs use the provider-independent `ConferenceProgram` contract in
-`app/src/shared/program.ts`. Source-specific code may change freely on its side
-of that boundary; the browser and Worker never consume raw scraper or
-extraction formats.
+No conference source documents, scrapers, provider adapters, or generated
+publication candidates belong in this repository.
 
 ## Repository layout
 
-- `app/` — Svelte frontend, Worker, shared TypeScript, program adapters, and
-  publishing tools
-- `scripts/` — source-specific Python ingestion tools
-- `data/` — ignored local source files, extraction work, and derived data
-- `tests/` — Python ingestion and data-integrity tests
-- `schema/` — portable `ConferenceProgram` schema and invariant notes
-- `ROADMAP.md` — unfinished work only
+- `app/` — Svelte frontend, Worker, shared domain types, and publication tools
+- `app/.programs/` — ignored local publication candidates
+- `schema/` — portable JSON Schema, producer contract, and example program
+- `ROADMAP.md` — unfinished app work only
 
-AAIC's scraper, refresh workflow, upstream protocol notes, and commands live in
-[`scripts/aaic_2026/README.md`](scripts/aaic_2026/README.md).
+The deployed app is one Cloudflare Worker. Private R2 stores the immutable
+programs and small catalog. One SQLite-backed Durable Object per conference
+stores mutable notes and RSVPs. Cloudflare Access protects production and
+supplies the user's identity.
 
-## Useful commands
+## Producer contract
 
-Run the Python suite from the repository root:
+A producer owns source acquisition, parsing, corrections, and stable item
+identity. Its only handoff is one complete `ConferenceProgram` JSON document.
+See [`schema/README.md`](schema/README.md), the generated JSON Schema, and the
+synthetic example in `app/fixtures/synthetic-program.json`.
 
-```bash
-python3 -m unittest
-```
-
-Run app commands from `app/` using pnpm:
+Validate a candidate without production access:
 
 ```bash
-pnpm install      # install pinned dependencies
-pnpm run check    # Svelte and TypeScript checks
-pnpm run test     # Vitest
-pnpm run dev      # local Vite/workerd development
-pnpm run build    # production build
-pnpm run deploy   # build and deploy the Worker
-pnpm run types    # regenerate Worker types after wrangler config changes
+pnpm run program:check /path/to/program.json
 ```
 
-Build the current AAIC source into a validated publication candidate:
+Review it against the current published program and a fresh notebook snapshot:
 
 ```bash
-cd app
-pnpm run aaic:build
+pnpm run program:review /path/to/program.json
 ```
 
-Publish a reviewed candidate independently of an app deployment:
+The review always blocks possible item-ID reuse and removal of an item carrying
+notes or RSVPs. A reviewed, non-identity content change on a referenced item
+can be acknowledged explicitly:
 
 ```bash
-pnpm run program:publish .programs/aaic-2026.json
+pnpm run program:review /path/to/program.json \
+  --allow-content-change ITEM_ID
 ```
 
-Publishing requires the bucket-scoped R2 credentials documented in the AAIC
-ingestion README. Program publication and Worker deployment are deliberately
-separate operations. Run one publication at a time: catalog updates are
-unconditional, so overlapping publishes can overwrite each other’s changes.
+Review uses `cloudflared access curl`; `CONFERENCE_APP_URL` may override the
+default production origin `https://conferences.kozak.ch`.
+
+## Publishing
+
+Publication repeats the production review before writing. It uploads the
+validated program under its full SHA-256 digest, verifies the immutable object,
+and replaces only that conference's catalog entry. It refuses to continue if
+the catalog changed after review.
+
+Set bucket-scoped `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and
+`R2_SECRET_ACCESS_KEY`; `R2_BUCKET` defaults to `conference-programs`:
+
+```bash
+pnpm run program:publish /path/to/program.json
+```
+
+Pass `--allow-content-change ITEM_ID` to publication when the same explicit
+acknowledgment was appropriate during review. Run one publisher at a time:
+catalog promotion is a single whole-object write.
+
+Program publication and Worker deployment are deliberately separate.
+
+## Development
+
+Use the repository mise environment, then run app commands from the repository
+root or `app/`:
+
+```bash
+mise install
+pnpm install
+pnpm run check
+pnpm run test
+pnpm run dev
+pnpm run build
+pnpm run deploy
+```
+
+Local Worker development reads the real private program catalog through the
+remote R2 binding. Its Durable Object is local, so development notes and RSVPs
+start separately from production.

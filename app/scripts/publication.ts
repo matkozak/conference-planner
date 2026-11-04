@@ -52,6 +52,7 @@ export function catalogWithProgram(
 export async function publishProgram(
   program: ConferenceProgram,
   config: R2PublicationConfig,
+  expectedCurrentHash: string | null,
 ): Promise<PublicationResult> {
   const client = new AwsClient({
     service: "s3",
@@ -64,6 +65,12 @@ export async function publishProgram(
   const key = programKey(program.conference.id, hash);
   const catalog = await readCatalog(client, config);
   const current = conferenceById(catalog, program.conference.id);
+  if ((current?.program_hash ?? null) !== expectedCurrentHash) {
+    throw new Error(
+      `catalog changed after review: expected ${expectedCurrentHash ?? "no publication"}, ` +
+        `found ${current?.program_hash ?? "no publication"}`,
+    );
+  }
   const next = catalogWithProgram(catalog, program, hash);
 
   if (

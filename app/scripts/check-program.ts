@@ -1,8 +1,8 @@
 /**
  * Validates a publication candidate without publishing it.
  *
- * Producers outside the app toolchain, such as the CTAD PDF ingestion, use this
- * to check their output against the shared contract.
+ * External producers use this to check their output against the shared
+ * contract before any production access is needed.
  */
 import { readFileSync } from "node:fs";
 

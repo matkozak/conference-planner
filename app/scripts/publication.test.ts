@@ -36,6 +36,28 @@ describe("program publication", () => {
     expect(second.conferences[0]?.program_hash).toBe("b".repeat(64));
   });
 
+  it("preserves every other conference while replacing one entry", () => {
+    const other = {
+      ...program.conference,
+      id: "other-2027",
+      program_hash: "c".repeat(64),
+    };
+    const current: ConferenceCatalog = {
+      schema_version: 1,
+      conferences: [
+        other,
+        { ...program.conference, program_hash: "a".repeat(64) },
+      ],
+    };
+
+    const next = catalogWithProgram(current, program, "b".repeat(64));
+
+    expect(next.conferences).toEqual([
+      other,
+      { ...program.conference, program_hash: "b".repeat(64) },
+    ]);
+  });
+
   it.each(['"catalog-v1"', 'W/"catalog-v1"', null, "missing"])(
     "uploads and promotes the catalog without preconditions (ETag=%s)",
     async (etag) => {
@@ -73,12 +95,16 @@ describe("program publication", () => {
         },
       );
 
-      const result = await publishProgram(program, {
-        accountId: "account",
-        accessKeyId: "access",
-        secretAccessKey: "secret",
-        bucket: "conference-programs",
-      });
+      const result = await publishProgram(
+        program,
+        {
+          accountId: "account",
+          accessKeyId: "access",
+          secretAccessKey: "secret",
+          bucket: "conference-programs",
+        },
+        etag === "missing" ? null : currentHash,
+      );
 
       expect(requests).toHaveLength(5);
       expect(requests[1]?.method).toBe("PUT");
@@ -113,14 +139,40 @@ describe("program publication", () => {
       },
     );
 
-    const result = await publishProgram(program, {
-      accountId: "account",
-      accessKeyId: "access",
-      secretAccessKey: "secret",
-      bucket: "conference-programs",
-    });
+    const result = await publishProgram(
+      program,
+      {
+        accountId: "account",
+        accessKeyId: "access",
+        secretAccessKey: "secret",
+        bucket: "conference-programs",
+      },
+      hash,
+    );
 
     expect(result).toEqual({ hash, changed: false });
     expect(requests.map((request) => request.method)).toEqual(["GET", "GET"]);
+  });
+
+  it("refuses to publish when the catalog changed after review", async () => {
+    const current = catalogWithProgram(
+      { schema_version: 1, conferences: [] },
+      program,
+      "b".repeat(64),
+    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(current));
+
+    await expect(
+      publishProgram(
+        program,
+        {
+          accountId: "account",
+          accessKeyId: "access",
+          secretAccessKey: "secret",
+          bucket: "conference-programs",
+        },
+        "a".repeat(64),
+      ),
+    ).rejects.toThrow("catalog changed after review");
   });
 });

@@ -3,11 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "aaic:build": "node scripts/build-aaic-program.ts",
     "program:check": "node scripts/check-program.ts",
+    "program:review": "node scripts/review-program.ts",
     "program:publish": "node scripts/publish-program.ts",
-    "ctad:build": "node scripts/ctad-workflow.ts build",
-    "ctad:publish": "node scripts/ctad-workflow.ts publish",
     "dev": "vite dev",
     "build": "vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.worker.json --noEmit",

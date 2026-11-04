@@ -1,6 +1,3 @@
-__pycache__/
-*.py[cod]
-
 # IDE
 .idea/
 
@@ -8,20 +5,7 @@ __pycache__/
 cookies*.txt
 mise.local.toml
 
-# Endpoint discovery scratch files
-EPFormat*.js
-EPUtility.js
-PlannerFilterFunctions.js
-planner*.html
-plantab*.html
-detail_*.html
-agenda_*.txt
-agenda_*.xml
-agenda_export.csv
-agenda_csv_headers.txt
-autocomplete_*.txt
-
-# Local conference source data, extraction work, and refresh staging
+# Defensive only: conference sources belong in external producer repositories.
 /data/
 
 # App (app/)
@@ -31,6 +15,5 @@ dist/
 .dev.vars*
 app/public/program.*.json
 app/public/_headers
-app/src/shared/generated/
 app/.programs/
 app/worker-configuration.d.ts
