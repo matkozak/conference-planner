@@ -4,7 +4,9 @@
 programs accepted by the conference application. It is generated from
 `app/src/shared/program.ts`; edit the Zod schema rather than the JSON file.
 
-An external producer emits one complete JSON document. Raw provider shapes,
+The
+[`conference-program-producers`](https://github.com/matkozak/conference-program-producers)
+repository emits one complete JSON document. Raw provider shapes,
 source documents, parsing artifacts, credentials, and producer-specific
 configuration do not cross this boundary. The synthetic
 `app/fixtures/synthetic-program.json` demonstrates the full document shape.

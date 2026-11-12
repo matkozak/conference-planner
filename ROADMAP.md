@@ -1,7 +1,8 @@
 # Roadmap
 
 Only unfinished application and publication-boundary work belongs here.
-Conference-specific ingestion roadmaps live with their producers.
+Conference-specific ingestion roadmaps live in
+[`conference-program-producers`](https://github.com/matkozak/conference-program-producers).
 
 ## Operational cleanup
 

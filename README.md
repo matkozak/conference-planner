@@ -5,12 +5,13 @@ attendance and the publication boundary that supplies its data. Team members
 can browse programs, search sessions and presentations, RSVP, share notes, and
 view personal or team schedules.
 
-Conference-specific acquisition and extraction live in separate producer
-projects. This repository accepts only a provider-independent,
-schema-conformant `ConferenceProgram` JSON document:
+Conference-specific acquisition and extraction live in
+[`matkozak/conference-program-producers`](https://github.com/matkozak/conference-program-producers).
+This repository accepts only a provider-independent, schema-conformant
+`ConferenceProgram` JSON document:
 
 ```text
-external producer
+conference-program-producers
   -> ConferenceProgram JSON
   -> contract validation
   -> production identity and notebook review
