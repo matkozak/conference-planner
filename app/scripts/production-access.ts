@@ -24,10 +24,28 @@ export interface ProductionReviewResult {
   changed: boolean;
 }
 
-/** Fetch production through Access and enforce safe program identity updates. */
+/** Parse `<program.json> [--force]` for the review and publish commands. */
+export function reviewArguments(
+  args: string[],
+  command: string,
+): { file: string; force: boolean } {
+  const [file, ...options] = args;
+  if (!file || file.startsWith("--")) {
+    throw new Error(`usage: pnpm run ${command} <program.json> [--force]`);
+  }
+  const unknown = options.find((option) => option !== "--force");
+  if (unknown !== undefined) throw new Error(`unknown argument: ${unknown}`);
+  return { file, force: options.includes("--force") };
+}
+
+/**
+ * Fetch production through Access and review the candidate against it.
+ *
+ * Blockers stop the update unless `force` acknowledges the printed review.
+ */
 export function reviewProductionCandidate(
   candidate: ConferenceProgram,
-  allowedContentChanges: ReadonlySet<string>,
+  force: boolean,
 ): ProductionReviewResult {
   const candidateHash = programContentHash(JSON.stringify(candidate));
   const catalog = parseConferenceCatalog(accessJson("/api/catalog"));
@@ -55,11 +73,13 @@ export function reviewProductionCandidate(
   );
   const review = reviewProgramUpdate(baseline, candidate, snapshot);
   process.stdout.write(renderProgramReview(review));
-  const blockers = publicationBlockers(review, allowedContentChanges);
+  const blockers = publicationBlockers(review);
   if (blockers.length > 0) {
-    throw new Error(
-      `Publication blocked:\n${blockers.map((blocker) => `- ${blocker}`).join("\n")}`,
-    );
+    const list = blockers.map((blocker) => `- ${blocker}`).join("\n");
+    if (!force) {
+      throw new Error(`Publication blocked (pass --force to accept):\n${list}`);
+    }
+    console.log(`\nAccepted with --force:\n${list}`);
   }
   return {
     expectedCurrentHash: current.program_hash,

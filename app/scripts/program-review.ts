@@ -157,30 +157,20 @@ export function reviewProgramUpdate(
   };
 }
 
-/** Identity reuse cannot be waived; referenced content changes require review. */
-export function publicationBlockers(
-  review: ProgramReview,
-  allowedContentChanges: ReadonlySet<string>,
-): string[] {
-  const blockers = review.possible_id_reuse.map(
-    (item) => `${item.id}: possible item ID reuse`,
-  );
-  const reusedIds = new Set(review.possible_id_reuse.map((item) => item.id));
+/** Block only changes that could misplace or orphan existing notes and RSVPs. */
+export function publicationBlockers(review: ProgramReview): string[] {
+  const blockers: string[] = [];
+  for (const item of review.possible_id_reuse) {
+    if (referenceTotal(item.references) > 0) {
+      blockers.push(
+        `${item.id}: possible item ID reuse with ${formatReferences(item.references)}`,
+      );
+    }
+  }
   for (const item of review.removed) {
     if (referenceTotal(item.references) > 0) {
       blockers.push(
         `${item.id}: removed item has ${formatReferences(item.references)}`,
-      );
-    }
-  }
-  for (const item of review.modified) {
-    if (
-      !reusedIds.has(item.id) &&
-      !allowedContentChanges.has(item.id) &&
-      referenceTotal(item.references) > 0
-    ) {
-      blockers.push(
-        `${item.id}: changed item has ${formatReferences(item.references)}`,
       );
     }
   }

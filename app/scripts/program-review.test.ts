@@ -52,7 +52,7 @@ describe("program update review", () => {
     expect(review.items_with_user_content).toEqual([]);
   });
 
-  it("flags likely item ID reuse even without user content", () => {
+  it("blocks likely item ID reuse only when the item has user content", () => {
     const baseline = program();
     const candidate = program();
     const session = candidate.sessions[0];
@@ -60,17 +60,27 @@ describe("program update review", () => {
     session.title = "Unrelated closing ceremony";
     session.speaker_ids = [];
 
-    const review = reviewProgramUpdate(baseline, candidate, snapshot(baseline));
-
-    expect(review.possible_id_reuse.map((item) => item.id)).toEqual([
+    const unreferenced = reviewProgramUpdate(
+      baseline,
+      candidate,
+      snapshot(baseline),
+    );
+    expect(unreferenced.possible_id_reuse.map((item) => item.id)).toEqual([
       "session-1",
     ]);
-    expect(publicationBlockers(review, new Set(["session-1"]))).toEqual([
-      "session-1: possible item ID reuse",
+    expect(publicationBlockers(unreferenced)).toEqual([]);
+
+    const referenced = reviewProgramUpdate(
+      baseline,
+      candidate,
+      snapshot(baseline, "session-1"),
+    );
+    expect(publicationBlockers(referenced)).toEqual([
+      "session-1: possible item ID reuse with 1 note(s), 1 RSVP(s)",
     ]);
   });
 
-  it("blocks an unacknowledged content change with notes or RSVPs", () => {
+  it("reports but does not block a content change with notes or RSVPs", () => {
     const baseline = program();
     const candidate = program();
     const talk = candidate.sessions[0]?.presentations[0];
@@ -84,10 +94,7 @@ describe("program update review", () => {
     );
 
     expect(review.modified[0]?.references).toEqual({ notes: 1, rsvps: 1 });
-    expect(publicationBlockers(review, new Set())).toEqual([
-      "talk-1: changed item has 1 note(s), 1 RSVP(s)",
-    ]);
-    expect(publicationBlockers(review, new Set(["talk-1"]))).toEqual([]);
+    expect(publicationBlockers(review)).toEqual([]);
     expect(renderProgramReview(review)).toContain(
       "Changed/removed items with user content: 1",
     );
@@ -106,7 +113,7 @@ describe("program update review", () => {
       snapshot(baseline, "talk-1"),
     );
 
-    expect(publicationBlockers(review, new Set())).toContain(
+    expect(publicationBlockers(review)).toContain(
       "talk-1: removed item has 1 note(s), 1 RSVP(s)",
     );
   });

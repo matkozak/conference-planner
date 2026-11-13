@@ -53,13 +53,20 @@ Review it against the current published program and a fresh notebook snapshot:
 pnpm run program:review /path/to/program.json
 ```
 
-The review always blocks possible item-ID reuse and removal of an item carrying
-notes or RSVPs. A reviewed, non-identity content change on a referenced item
-can be acknowledged explicitly:
+Notes and RSVPs are attached to item IDs, so the review reports every added,
+removed, and changed ID with its note and RSVP counts. Ordinary changes to an
+item that keeps its ID, such as a new time, room, or title, never block. Only
+two findings do, because they would misplace or orphan user content:
+
+- an item carrying notes or RSVPs was removed;
+- an item carrying notes or RSVPs kept its ID but now looks like a different
+  item (changed kind, entirely replaced presentations, or an unrelated title
+  with no shared speaker).
+
+After reading the report, accept the listed blockers with `--force`:
 
 ```bash
-pnpm run program:review /path/to/program.json \
-  --allow-content-change ITEM_ID
+pnpm run program:review /path/to/program.json --force
 ```
 
 Review uses `cloudflared access curl`; `CONFERENCE_APP_URL` may override the
@@ -79,8 +86,8 @@ Set bucket-scoped `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and
 pnpm run program:publish /path/to/program.json
 ```
 
-Pass `--allow-content-change ITEM_ID` to publication when the same explicit
-acknowledgment was appropriate during review. Run one publisher at a time:
+Pass `--force` to publication to accept the blockers shown by the review. Run
+one publisher at a time:
 catalog promotion is a single whole-object write.
 
 Program publication and Worker deployment are deliberately separate.
